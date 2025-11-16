@@ -1,0 +1,143 @@
+"""File API endpoints."""
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List
+
+from app.core.database import get_db
+from app.schemas.file import FileCreate, FileUpdate, FileResponse
+from app.repositories.file_repository import FileRepository
+from app.repositories.document_repository import DocumentRepository
+from app.models.file import File
+from app.models.customs_export import CustomsExportRoot, Header, Body, Declaration
+from app.middleware.auth import verify_token
+
+router = APIRouter(prefix="/files", tags=["Files"])
+
+
+@router.get("", response_model=List[FileResponse])
+async def get_files(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    token: dict = Depends(verify_token),
+):
+    """Get all files."""
+    repo = FileRepository(db)
+    files = await repo.get_all(skip=skip, limit=limit)
+    return files
+
+
+@router.post("", response_model=FileResponse, status_code=status.HTTP_201_CREATED)
+async def create_file(
+    file_data: FileCreate,
+    db: AsyncSession = Depends(get_db),
+    token: dict = Depends(verify_token),
+):
+    """Create a new file."""
+    repo = FileRepository(db)
+    file = File(**file_data.model_dump())
+    file = await repo.create(file)
+    return file
+
+
+@router.get("/{file_id}", response_model=FileResponse)
+async def get_file(
+    file_id: int,
+    db: AsyncSession = Depends(get_db),
+    token: dict = Depends(verify_token),
+):
+    """Get a specific file."""
+    repo = FileRepository(db)
+    file = await repo.get_by_id(file_id)
+
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
+        )
+
+    return file
+
+
+@router.patch("/{file_id}", response_model=FileResponse)
+async def update_file(
+    file_id: int,
+    file_data: FileUpdate,
+    db: AsyncSession = Depends(get_db),
+    token: dict = Depends(verify_token),
+):
+    """Update a file."""
+    repo = FileRepository(db)
+    file = await repo.update(file_id, **file_data.model_dump(exclude_unset=True))
+
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
+        )
+
+    return file
+
+
+@router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_file(
+    file_id: int,
+    db: AsyncSession = Depends(get_db),
+    token: dict = Depends(verify_token),
+):
+    """Delete a file."""
+    repo = FileRepository(db)
+    deleted = await repo.delete(file_id)
+
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
+        )
+
+
+@router.get("/{file_id}/export")
+async def export_file(
+    file_id: int,
+    db: AsyncSession = Depends(get_db),
+    token: dict = Depends(verify_token),
+):
+    """Export file as XML customs declaration."""
+    # Get file
+    file_repo = FileRepository(db)
+    file = await file_repo.get_by_id(file_id)
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
+        )
+
+    # Get all documents for the file
+    doc_repo = DocumentRepository(db)
+    documents = await doc_repo.get_by_file_id(file_id)
+
+    # Build XML structure
+    export_root = CustomsExportRoot()
+
+    # Merge parameters from documents
+    merged_params = {}
+    for doc in documents:
+        if doc.params:
+            merged_params.update(doc.params)
+        if doc.form and doc.form.params:
+            merged_params.update(doc.form.params)
+
+    # Apply params to declaration
+    declaration = Declaration()
+    for key, value in merged_params.items():
+        # Map params to declaration fields
+        if hasattr(declaration, key.lower().replace(".", "_")):
+            setattr(declaration, key.lower().replace(".", "_"), str(value))
+
+    export_root.body.declaration = declaration
+
+    # Generate XML
+    xml_content = export_root.to_xml()
+
+    return Response(
+        content=xml_content,
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="file_{file_id}_export.xml"'},
+    )
