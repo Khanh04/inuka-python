@@ -52,7 +52,7 @@ COPY --from=backend-builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY app/ ./app/
 COPY requirements.txt .
-COPY start.sh .
+COPY start.py .
 
 # Copy built frontend from frontend-builder
 COPY --from=frontend-builder /app/client/dist ./client/dist
@@ -60,6 +60,6 @@ COPY --from=frontend-builder /app/client/dist ./client/dist
 # Expose port (Railway will use $PORT environment variable)
 EXPOSE 8080
 
-# Run the application using startup script
+# Run the application using Python startup script
 # Railway sets PORT automatically, script will use it
-CMD ["bash", "start.sh"]
+CMD ["python", "start.py"]
