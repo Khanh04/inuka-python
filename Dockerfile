@@ -52,6 +52,7 @@ COPY --from=backend-builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY app/ ./app/
 COPY requirements.txt .
+COPY start.sh .
 
 # Copy built frontend from frontend-builder
 COPY --from=frontend-builder /app/client/dist ./client/dist
@@ -59,6 +60,6 @@ COPY --from=frontend-builder /app/client/dist ./client/dist
 # Expose port (Railway will use $PORT environment variable)
 EXPOSE 8080
 
-# Run the application
-# Railway sets PORT automatically, fallback to 8080 for local development
-CMD python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}
+# Run the application using startup script
+# Railway sets PORT automatically, script will use it
+CMD ["bash", "start.sh"]
