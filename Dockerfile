@@ -1,6 +1,6 @@
 FROM python:3.10-slim AS backend-builder
 
-# Install system dependencies for Tesseract and OpenCV
+# Install system dependencies for Tesseract, OpenCV, and PDF processing
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     tesseract-ocr-eng \
@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     libleptonica-dev \
     libgl1 \
     libglib2.0-0 \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -33,7 +34,7 @@ RUN npm run build
 # Final stage
 FROM python:3.10-slim
 
-# Install runtime dependencies for Tesseract and OpenCV
+# Install runtime dependencies for Tesseract, OpenCV, and PDF processing
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     tesseract-ocr-eng \
@@ -41,6 +42,7 @@ RUN apt-get update && apt-get install -y \
     libleptonica-dev \
     libgl1 \
     libglib2.0-0 \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
