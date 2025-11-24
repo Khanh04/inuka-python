@@ -11,7 +11,14 @@ class Settings(BaseSettings):
     PORT: int = 8080
     DEBUG: bool = False
 
-    # Database - PostgreSQL
+    # Database - Railway PostgreSQL Variables (priority)
+    PGHOST: Optional[str] = None
+    PGPORT: Optional[int] = None
+    PGUSER: Optional[str] = None
+    PGPASSWORD: Optional[str] = None
+    PGDATABASE: Optional[str] = None
+
+    # Database - PostgreSQL (traditional naming - fallback)
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "inuka"
@@ -36,11 +43,21 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        """Get PostgreSQL database URL for SQLAlchemy."""
+        """Get PostgreSQL database URL for SQLAlchemy.
+
+        Prioritizes Railway-style PG* variables, falls back to POSTGRES_* variables.
+        """
+        # Use Railway-style variables if available
+        host = self.PGHOST or self.POSTGRES_HOST
+        port = self.PGPORT or self.POSTGRES_PORT
+        user = self.PGUSER or self.POSTGRES_USER
+        password = self.PGPASSWORD or self.POSTGRES_PASSWORD
+        database = self.PGDATABASE or self.POSTGRES_DB
+
         return (
-            f"postgresql+asyncpg://{self.POSTGRES_USER}:"
-            f"{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:"
-            f"{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+            f"postgresql+asyncpg://{user}:"
+            f"{password}@{host}:"
+            f"{port}/{database}"
         )
 
     @property

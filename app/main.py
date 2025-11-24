@@ -1,5 +1,6 @@
 """Main application entry point."""
 import os
+import logging
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,7 @@ from app.core.database import engine, Base
 from app.core.config import get_settings
 from app.api.v1 import ocr, templates, files, forms, documents
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -18,11 +20,21 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events."""
     # Startup: Create database tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Connecting to database and creating tables...")
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database connection established successfully")
+    except Exception as e:
+        logger.error(f"Failed to connect to database: {e}")
+        raise
+
     yield
+
     # Shutdown: Dispose engine
+    logger.info("Closing database connection...")
     await engine.dispose()
+    logger.info("Database connection closed")
 
 
 # Create FastAPI app
