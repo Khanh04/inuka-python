@@ -1,16 +1,17 @@
 """File API endpoints."""
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
 
 from app.core.database import get_db
-from app.schemas.file import FileCreate, FileUpdate, FileResponse
-from app.repositories.file_repository import FileRepository
-from app.repositories.document_repository import DocumentRepository
-from app.models.file import File
-from app.models.customs_export import CustomsExportRoot, Header, Body, Declaration
 from app.middleware.auth import verify_token
+from app.models.customs_export import Body, CustomsExportRoot, Declaration, Header
+from app.models.file import File
+from app.repositories.document_repository import DocumentRepository
+from app.repositories.file_repository import FileRepository
+from app.schemas.file import FileCreate, FileResponse, FileUpdate
 
 router = APIRouter(prefix="/files", tags=["Files"])
 
@@ -52,9 +53,7 @@ async def get_file(
     file = await repo.get_by_id(file_id)
 
     if not file:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
 
     return file
 
@@ -71,9 +70,7 @@ async def update_file(
     file = await repo.update(file_id, **file_data.model_dump(exclude_unset=True))
 
     if not file:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
 
     return file
 
@@ -89,9 +86,7 @@ async def delete_file(
     deleted = await repo.delete(file_id)
 
     if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
 
 
 @router.get("/{file_id}/export")
@@ -105,9 +100,7 @@ async def export_file(
     file_repo = FileRepository(db)
     file = await file_repo.get_by_id(file_id)
     if not file:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
 
     # Get all documents for the file
     doc_repo = DocumentRepository(db)

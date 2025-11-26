@@ -1,13 +1,14 @@
 """Template API endpoints."""
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import get_db
-from app.schemas.template import TemplateCreate, TemplateUpdate, TemplateResponse
-from app.repositories.template_repository import TemplateRepository
-from app.models.template import Template
 from app.middleware.auth import verify_token
+from app.models.template import Template
+from app.repositories.template_repository import TemplateRepository
+from app.schemas.template import TemplateCreate, TemplateResponse, TemplateUpdate
 
 router = APIRouter(prefix="/templates", tags=["Templates"])
 
@@ -49,9 +50,7 @@ async def get_template(
     template = await repo.get_by_id(template_id)
 
     if not template:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
 
     return template
 
@@ -68,9 +67,7 @@ async def update_template(
     template = await repo.update(template_id, **template_data.model_dump(exclude_unset=True))
 
     if not template:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
 
     return template
 
@@ -86,6 +83,4 @@ async def delete_template(
     deleted = await repo.delete(template_id)
 
     if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")

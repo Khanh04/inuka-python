@@ -1,9 +1,10 @@
 """Database connection and session management."""
-import os
 import logging
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import declarative_base
+import os
 from typing import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import declarative_base
 
 from app.core.config import get_settings
 
@@ -24,7 +25,7 @@ if os.getenv("DATABASE_URL"):
     db_type = "PostgreSQL"
     db_source = "DATABASE_URL (Railway)"
     # Mask password in URL for logging
-    safe_url = database_url.split('@')[1] if '@' in database_url else "unknown"
+    safe_url = database_url.split("@")[1] if "@" in database_url else "unknown"
     logger.info(f"Database: {db_type} via {db_source} - Host: {safe_url}")
 elif settings.PGHOST or (settings.POSTGRES_HOST and settings.POSTGRES_HOST != "localhost"):
     # Use PostgreSQL if configured (supports both Railway PG* and traditional POSTGRES_* variables)

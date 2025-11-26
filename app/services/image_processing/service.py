@@ -1,22 +1,19 @@
 """Image processing service using OpenCV."""
+from typing import Optional, Tuple
+
 import cv2
 import numpy as np
-from typing import Tuple, Optional
 
 
 class ImageProcessingService:
     """Service for image processing operations."""
 
-    def match_and_rescale(
-        self, image_data: bytes, template_data: bytes
-    ) -> bytes:
+    def match_and_rescale(self, image_data: bytes, template_data: bytes) -> bytes:
         """Match and rescale image using SIFT and homography."""
         try:
             # Decode images
             img = cv2.imdecode(np.frombuffer(image_data, np.uint8), cv2.IMREAD_COLOR)
-            template_img = cv2.imdecode(
-                np.frombuffer(template_data, np.uint8), cv2.IMREAD_COLOR
-            )
+            template_img = cv2.imdecode(np.frombuffer(template_data, np.uint8), cv2.IMREAD_COLOR)
 
             # Convert to grayscale
             img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -41,12 +38,8 @@ class ImageProcessingService:
                 raise ValueError("Not enough good matches found")
 
             # Get matched points
-            src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(
-                -1, 1, 2
-            )
-            dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(
-                -1, 1, 2
-            )
+            src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+            dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
 
             # Find homography
             M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 3.0)
@@ -61,9 +54,7 @@ class ImageProcessingService:
         except Exception as e:
             raise Exception(f"Image processing failed: {str(e)}")
 
-    def extract_section(
-        self, image_data: bytes, x: int, y: int, width: int, height: int
-    ) -> bytes:
+    def extract_section(self, image_data: bytes, x: int, y: int, width: int, height: int) -> bytes:
         """Extract a section from an image."""
         try:
             img = cv2.imdecode(np.frombuffer(image_data, np.uint8), cv2.IMREAD_COLOR)
@@ -73,9 +64,7 @@ class ImageProcessingService:
         except Exception as e:
             raise Exception(f"Section extraction failed: {str(e)}")
 
-    def resize_image(
-        self, image_data: bytes, width: int, height: int
-    ) -> bytes:
+    def resize_image(self, image_data: bytes, width: int, height: int) -> bytes:
         """Resize an image."""
         try:
             img = cv2.imdecode(np.frombuffer(image_data, np.uint8), cv2.IMREAD_COLOR)

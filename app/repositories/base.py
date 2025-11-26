@@ -1,7 +1,9 @@
 """Base repository with common CRUD operations."""
-from typing import Generic, TypeVar, Type, Optional, List
+from typing import Generic, List, Optional, Type, TypeVar
+
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
+
 from app.core.database import Base
 
 ModelType = TypeVar("ModelType", bound=Base)

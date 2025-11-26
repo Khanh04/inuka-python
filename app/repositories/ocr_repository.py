@@ -1,7 +1,9 @@
 """OCR repository."""
 from typing import Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.ocr import OCRJob
 from app.repositories.base import BaseRepository
 

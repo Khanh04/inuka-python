@@ -19,8 +19,4 @@ print(f"Environment PORT variable: {os.getenv('PORT', 'NOT SET')}", file=sys.std
 # Import and run uvicorn directly
 import uvicorn
 
-uvicorn.run(
-    "app.main:app",
-    host="0.0.0.0",
-    port=int(port)
-)
+uvicorn.run("app.main:app", host="0.0.0.0", port=int(port))

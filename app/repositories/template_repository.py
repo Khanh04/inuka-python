@@ -1,5 +1,6 @@
 """Template repository."""
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.template import Template
 from app.repositories.base import BaseRepository
 

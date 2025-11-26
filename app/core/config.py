@@ -1,7 +1,8 @@
 """Application configuration using Pydantic Settings."""
-from typing import Optional
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+from typing import Optional
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -54,11 +55,7 @@ class Settings(BaseSettings):
         password = self.PGPASSWORD or self.POSTGRES_PASSWORD
         database = self.PGDATABASE or self.POSTGRES_DB
 
-        return (
-            f"postgresql+asyncpg://{user}:"
-            f"{password}@{host}:"
-            f"{port}/{database}"
-        )
+        return f"postgresql+asyncpg://{user}:" f"{password}@{host}:" f"{port}/{database}"
 
     @property
     def sqlite_url(self) -> str:
