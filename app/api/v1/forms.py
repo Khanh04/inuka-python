@@ -18,7 +18,7 @@ router = APIRouter(tags=["Forms"])
 async def get_forms(
     template_id: int,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Get all forms for a template."""
     # Verify template exists
@@ -44,7 +44,7 @@ async def upload_form(
     name: str = Form(...),
     image: UploadFile = FastAPIFile(...),
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Upload a form image for a template."""
     # Verify template exists
@@ -73,7 +73,7 @@ async def get_form(
     template_id: int,
     form_id: int,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Get a specific form."""
     repo = FormRepository(db)
@@ -93,7 +93,7 @@ async def update_form(
     form_id: int,
     form_data: FormUpdate,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Update a form."""
     repo = FormRepository(db)
@@ -115,7 +115,7 @@ async def delete_form(
     template_id: int,
     form_id: int,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Delete a form."""
     repo = FormRepository(db)

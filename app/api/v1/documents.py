@@ -19,7 +19,7 @@ router = APIRouter(tags=["Documents"])
 async def get_documents(
     file_id: int,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Get all documents for a file."""
     # Verify file exists
@@ -45,7 +45,7 @@ async def upload_document(
     form_id: int,
     image: UploadFile = FastAPIFile(...),
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Upload a document image for a file."""
     # Verify file exists
@@ -94,7 +94,7 @@ async def delete_document(
     file_id: int,
     document_id: int,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Delete a document."""
     repo = DocumentRepository(db)

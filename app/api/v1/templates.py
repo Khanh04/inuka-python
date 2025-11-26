@@ -17,7 +17,7 @@ async def get_templates(
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Get all templates."""
     repo = TemplateRepository(db)
@@ -29,7 +29,7 @@ async def get_templates(
 async def create_template(
     template_data: TemplateCreate,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Create a new template."""
     repo = TemplateRepository(db)
@@ -42,7 +42,7 @@ async def create_template(
 async def get_template(
     template_id: int,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Get a specific template."""
     repo = TemplateRepository(db)
@@ -61,7 +61,7 @@ async def update_template(
     template_id: int,
     template_data: TemplateUpdate,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Update a template."""
     repo = TemplateRepository(db)
@@ -79,7 +79,7 @@ async def update_template(
 async def delete_template(
     template_id: int,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Delete a template."""
     repo = TemplateRepository(db)

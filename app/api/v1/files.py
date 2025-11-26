@@ -20,7 +20,7 @@ async def get_files(
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Get all files."""
     repo = FileRepository(db)
@@ -32,7 +32,7 @@ async def get_files(
 async def create_file(
     file_data: FileCreate,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Create a new file."""
     repo = FileRepository(db)
@@ -45,7 +45,7 @@ async def create_file(
 async def get_file(
     file_id: int,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Get a specific file."""
     repo = FileRepository(db)
@@ -64,7 +64,7 @@ async def update_file(
     file_id: int,
     file_data: FileUpdate,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Update a file."""
     repo = FileRepository(db)
@@ -82,7 +82,7 @@ async def update_file(
 async def delete_file(
     file_id: int,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Delete a file."""
     repo = FileRepository(db)
@@ -98,7 +98,7 @@ async def delete_file(
 async def export_file(
     file_id: int,
     db: AsyncSession = Depends(get_db),
-    token: dict = Depends(verify_token),
+    # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
     """Export file as XML customs declaration."""
     # Get file
