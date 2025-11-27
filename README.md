@@ -163,17 +163,64 @@ export DEBUG=True
 python app/main.py
 ```
 
-### Code formatting
+### Code Quality Tools
+
+This project uses comprehensive code quality tooling with automated pre-commit hooks.
+
+#### Setup Pre-commit Hooks
 
 ```bash
-black app/
+# Install and setup pre-commit hooks (one-time setup)
+./scripts/setup_hooks.sh
 ```
 
-### Type checking
+Once installed, hooks run automatically on every commit to ensure code quality.
+
+#### Run All Quality Checks
 
 ```bash
-mypy app/
+# Check code quality (no changes)
+./scripts/quality_check.sh
+
+# Auto-fix all issues
+AUTO_FIX=true ./scripts/quality_check.sh
+
+# Auto-fix and commit changes
+AUTO_FIX=true AUTO_COMMIT=true ./scripts/quality_check.sh
 ```
+
+#### Individual Tools
+
+```bash
+# Code formatting (Black)
+black app/ --config pyproject.toml
+
+# Import sorting (isort)
+isort app/ --profile black --line-length 120
+
+# Code linting (Pylint)
+pylint app/ --rcfile=.pylintrc
+
+# Type checking (Mypy)
+mypy app/ --config-file=mypy.ini
+
+# Security scanning (Bandit)
+bandit -r app/ -c pyproject.toml
+
+# Run pre-commit hooks manually
+pre-commit run --all-files
+```
+
+#### Tools Included
+
+- **Black**: Code formatter (120 char line length)
+- **isort**: Import sorter (Black-compatible)
+- **Pylint**: Code linter (8.0/10 minimum score)
+- **Mypy**: Static type checker
+- **Bandit**: Security vulnerability scanner
+- **Pre-commit**: Git hooks for automated checks
+
+See [CODE_QUALITY.md](CODE_QUALITY.md) for detailed documentation.
 
 ### Running tests
 

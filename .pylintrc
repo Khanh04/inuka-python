@@ -1,0 +1,93 @@
+[MASTER]
+# Use multiple processes to speed up Pylint
+jobs=1
+
+# Allow loading of arbitrary C extensions
+unsafe-load-any-extension=no
+
+# List of plugins
+load-plugins=
+
+# Pickle collected data for later comparisons
+persistent=yes
+
+# Specify a score threshold to be exceeded before program exits with error
+fail-under=8.0
+
+[MESSAGES CONTROL]
+# Disable specific warnings
+disable=
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-few-public-methods,
+    too-many-arguments,
+    too-many-instance-attributes,
+    too-many-locals,
+    fixme,
+    import-error,
+    no-name-in-module,
+    line-too-long,
+    invalid-name
+
+[REPORTS]
+# Set the output format
+output-format=colorized
+
+# Tells whether to display a full report or only the messages
+reports=no
+
+# Activate the evaluation score
+score=yes
+
+[BASIC]
+# Good variable names
+good-names=i,j,k,ex,Run,_,id,db
+
+# Regular expression matching correct function names
+function-rgx=[a-z_][a-z0-9_]{2,50}$
+
+# Regular expression matching correct method names
+method-rgx=[a-z_][a-z0-9_]{2,50}$
+
+# Regular expression matching correct constant names
+const-rgx=(([A-Z_][A-Z0-9_]*)|(__.*__))$
+
+[FORMAT]
+# Maximum number of characters on a single line
+max-line-length=120
+
+# Maximum number of lines in a module
+max-module-lines=1000
+
+[DESIGN]
+# Maximum number of arguments for function / method
+max-args=10
+
+# Maximum number of attributes for a class
+max-attributes=15
+
+# Maximum number of boolean expressions in a if statement
+max-bool-expr=5
+
+# Maximum number of branch for function / method body
+max-branches=12
+
+# Maximum number of locals for function / method body
+max-locals=15
+
+# Maximum number of parents for a class
+max-parents=7
+
+# Maximum number of public methods for a class
+max-public-methods=20
+
+# Maximum number of return / yield for function / method body
+max-returns=6
+
+# Maximum number of statements in function / method body
+max-statements=50
+
+[EXCEPTIONS]
+# Exceptions that will emit a warning when caught
+overgeneral-exceptions=builtins.Exception

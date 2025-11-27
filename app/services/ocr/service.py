@@ -1,13 +1,15 @@
 """OCR service using pytesseract."""
-import pytesseract
-from PIL import Image
-import io
-import base64
 import asyncio
+import base64
+import io
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
+
+import pytesseract
 from pdf2image import convert_from_bytes
+from PIL import Image
+
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -25,11 +27,9 @@ class OCRService:
 
     def _is_pdf(self, data: bytes) -> bool:
         """Check if data is a PDF file by examining magic bytes."""
-        return data.startswith(b'%PDF')
+        return data.startswith(b"%PDF")
 
-    def _extract_text_from_pdf_sync(
-        self, pdf_data: bytes, language: Optional[str] = None
-    ) -> str:
+    def _extract_text_from_pdf_sync(self, pdf_data: bytes, language: Optional[str] = None) -> str:
         """Synchronous PDF to text extraction (runs in thread pool)."""
         logger.info("Converting PDF to images for OCR processing")
 
@@ -51,9 +51,7 @@ class OCRService:
         logger.info(f"Extracted text from {len(images)} PDF pages")
         return result
 
-    def _extract_text_from_image_sync(
-        self, image_data: bytes, language: Optional[str] = None
-    ) -> str:
+    def _extract_text_from_image_sync(self, image_data: bytes, language: Optional[str] = None) -> str:
         """Synchronous image text extraction (runs in thread pool)."""
         # Convert bytes to PIL Image
         image = Image.open(io.BytesIO(image_data))
@@ -65,9 +63,7 @@ class OCRService:
         text = pytesseract.image_to_string(image, lang=lang)
         return text.strip()
 
-    async def extract_text(
-        self, image_data: bytes, language: Optional[str] = None
-    ) -> str:
+    async def extract_text(self, image_data: bytes, language: Optional[str] = None) -> str:
         """Extract text from image or PDF using Tesseract OCR."""
         try:
             # Check if it's a PDF
@@ -75,9 +71,7 @@ class OCRService:
                 logger.info("Detected PDF file, using PDF extraction")
                 # Run blocking PDF OCR operation in thread pool
                 loop = asyncio.get_event_loop()
-                text = await loop.run_in_executor(
-                    self.executor, self._extract_text_from_pdf_sync, image_data, language
-                )
+                text = await loop.run_in_executor(self.executor, self._extract_text_from_pdf_sync, image_data, language)
             else:
                 logger.info("Detected image file, using direct OCR")
                 # Run blocking image OCR operation in thread pool
@@ -89,9 +83,7 @@ class OCRService:
         except Exception as e:
             raise Exception(f"OCR processing failed: {str(e)}")
 
-    async def extract_text_from_base64(
-        self, image_base64: str, language: Optional[str] = None
-    ) -> str:
+    async def extract_text_from_base64(self, image_base64: str, language: Optional[str] = None) -> str:
         """Extract text from base64 encoded image or PDF."""
         # Decode base64 to bytes
         image_data = base64.b64decode(image_base64)
