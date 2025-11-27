@@ -36,7 +36,7 @@ async def get_documents(
     return documents
 
 
-@router.put(
+@router.post(
     "/files/{file_id}/documents/{form_id}",
     response_model=DocumentResponse,
     status_code=status.HTTP_201_CREATED,

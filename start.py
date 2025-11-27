@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Startup script for Railway deployment."""
+# Import and run uvicorn directly
 import os
 import sys
+
+import uvicorn
 
 # Get PORT from environment, default to 8080
 port = os.getenv("PORT", "8080")
@@ -16,7 +19,5 @@ except (ValueError, TypeError):
 print(f"Starting uvicorn on port {port}...", file=sys.stderr)
 print(f"Environment PORT variable: {os.getenv('PORT', 'NOT SET')}", file=sys.stderr)
 
-# Import and run uvicorn directly
-import uvicorn
 
 uvicorn.run("app.main:app", host="0.0.0.0", port=int(port))
