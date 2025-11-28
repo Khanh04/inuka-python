@@ -13,14 +13,12 @@ class Form(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     template_id = Column(Integer, ForeignKey("templates.id", ondelete="CASCADE"), nullable=False, index=True)
-    name = Column(String(255), nullable=False)
-    image_path = Column(Text, nullable=True)
-    image_data = Column(Text, nullable=True)  # Base64 encoded image
-    params = Column(JSON, nullable=True)  # JSON parameters for the form
-    all_page_params = Column(JSON, nullable=True)  # JSON for all page parameters
+    description = Column(Text, nullable=True)
+    template = Column(JSON, nullable=True)  # CapturedTemplate JSON structure
+    all_page_params = Column(JSON, nullable=True)  # Map of page params
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
-    template = relationship("Template", back_populates="forms")
+    template_rel = relationship("Template", back_populates="forms")
     documents = relationship("Document", back_populates="form")

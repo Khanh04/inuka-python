@@ -18,4 +18,5 @@ class Template(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
-    forms = relationship("Form", back_populates="template", cascade="all, delete-orphan")
+    forms = relationship("Form", back_populates="template_rel", cascade="all, delete-orphan")
+    files = relationship("File", back_populates="template", cascade="all, delete-orphan")
