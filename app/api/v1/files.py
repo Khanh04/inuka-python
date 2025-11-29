@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.middleware.auth import verify_token
-from app.models.vnaccs_export import DToKhaiMDData, VNACCSRoot
 from app.models.file import File
+from app.models.vnaccs_full_template import VNACCSTemplateExporter
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.file_repository import FileRepository
 from app.schemas.file import FileCreate, FileResponse, FileUpdate
@@ -95,7 +95,7 @@ async def export_file(
     db: AsyncSession = Depends(get_db),
     # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
-    """Export file as XML customs declaration."""
+    """Export file as XML customs declaration using template-based VNACCS format."""
     # Get file
     file_repo = FileRepository(db)
     file = await file_repo.get_by_id(file_id)
@@ -106,10 +106,7 @@ async def export_file(
     doc_repo = DocumentRepository(db)
     documents = await doc_repo.get_by_file_id(file_id)
 
-    # Build VNACCS XML structure
-    vnaccs_root = VNACCSRoot()
-
-    # Merge parameters from documents
+    # Merge parameters from documents and forms
     merged_params = {}
     for doc in documents:
         if doc.params:
@@ -117,42 +114,38 @@ async def export_file(
         if doc.form and doc.form.params:
             merged_params.update(doc.form.params)
 
-    # Create declaration data with VNACCS field mapping
-    declaration_data = DToKhaiMDData()
-
     # Map common international fields to Vietnamese VNACCS fields
+    # Note: Field names must match exactly what's in sample (2).xml template
+    vnaccs_params = {}
     field_mapping = {
-        # International -> VNACCS mapping
+        # International -> VNACCS template field names
         "DeclarationNo": "SOTK",
-        "DeclarationDate": "NGAYDK",
-        "VesselName": "TENPTVT",
-        "VoyageNo": "VANDON",
-        "BillOfLadingNo": "VANDON",
-        "CurrencyCode": "MANT",
-        "ExchangeRate": "TYGIAUSD",
+        "DeclarationDate": "NGAY_DK",
+        "VesselName": "TEN_PTVT",
+        "VoyageNo": "VAN_DON",
+        "BillOfLadingNo": "VAN_DON",
+        "CurrencyCode": "MA_NT",
+        "ExchangeRate": "TYGIA_USD",
         "TotalFOBValue": "TONGTGKB",
         "TotalCIFValue": "TONGTGTT",
-        "TotalFreight": "PHIVC",
-        "TotalInsurance": "PHIBH",
-        "TransportModeCode": "MAPTVT",
-        "CustomsOfficeCode": "MAHQ",
-        "DeclarationKindCode": "MALH",
+        "TotalFreight": "PHI_VC",
+        "TotalInsurance": "PHI_BH",
+        "TransportModeCode": "MA_PTVT",
+        "CustomsOfficeCode": "MA_HQ",
+        "DeclarationKindCode": "MA_LH",
     }
 
-    # Apply params to VNACCS declaration data
+    # Convert international field names to VNACCS field names
     for key, value in merged_params.items():
-        # Try direct VNACCS field name first (if already using Vietnamese fields)
-        if hasattr(declaration_data, key):
-            setattr(declaration_data, key, str(value))
-        # Try international field mapping
-        elif key in field_mapping:
-            vnaccs_field = field_mapping[key]
-            setattr(declaration_data, vnaccs_field, str(value))
+        if key in field_mapping:
+            vnaccs_params[field_mapping[key]] = str(value)
+        else:
+            # Keep as-is if already using VNACCS field name
+            vnaccs_params[key] = str(value)
 
-    vnaccs_root.declaration_data = declaration_data
-
-    # Generate XML
-    xml_content = vnaccs_root.to_xml()
+    # Generate XML using template-based approach
+    exporter = VNACCSTemplateExporter()
+    xml_content = exporter.generate_xml(vnaccs_params)
 
     return Response(
         content=xml_content,

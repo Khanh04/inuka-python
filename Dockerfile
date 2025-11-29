@@ -56,6 +56,10 @@ COPY app/ ./app/
 COPY requirements.txt .
 COPY start.py .
 
+# Copy Alembic migration files
+COPY alembic/ ./alembic/
+COPY alembic.ini .
+
 # Copy built frontend from frontend-builder
 COPY --from=frontend-builder /app/client/dist ./client/dist
 

@@ -132,55 +132,65 @@ class VNACCSRoot(BaseModel):
         populate_by_name = True
 
     def to_xml(self) -> str:
-        """Convert to VNACCS XML string."""
+        """Convert to VNACCS XML string matching sample format."""
         from lxml import etree
 
         root = etree.Element("Root")
 
-        # Root-level fields
+        # Root-level header fields (matching sample XML)
         etree.SubElement(root, "App").text = self.App
         etree.SubElement(root, "DBVersion").text = self.DBVersion
-        etree.SubElement(root, "LastUpdate").text = self.LastUpdate
-        etree.SubElement(root, "VersionMessage").text = self.VersionMessage
-        etree.SubElement(root, "Date").text = self.Date or datetime.now().strftime("%Y-%m-%d")
+        etree.SubElement(root, "LastUpdate").text = self.LastUpdate or ""
+        etree.SubElement(root, "VersionMessage").text = self.VersionMessage or ""
+        etree.SubElement(root, "Date").text = self.Date or datetime.now().strftime("%d/%m/%Y")
 
-        # DToKhaiMDIDs section
+        # DToKhaiMDIDs section - main declaration
+        dtokhaimdids_elem = etree.SubElement(root, "DToKhaiMDIDs")
+        dtokhaimd_elem = etree.SubElement(dtokhaimdids_elem, "DToKhaiMD")
+        data_elem = etree.SubElement(dtokhaimd_elem, "Data")
+
+        # Add declaration fields with "NULL" as default for empty values (matching VNACCS sample)
         if self.declaration_data:
-            dtokhaimdids_elem = etree.SubElement(root, "DToKhaiMDIDs")
-            dtokhaimd_elem = etree.SubElement(dtokhaimdids_elem, "DToKhaiMD")
-            data_elem = etree.SubElement(dtokhaimd_elem, "Data")
-
-            # Add all declaration fields
             decl = self.declaration_data
-            for field_name, field_value in decl.model_dump(exclude_none=True).items():
-                if field_value:
-                    etree.SubElement(data_elem, field_name).text = str(field_value)
+            for field_name in DToKhaiMDData.model_fields.keys():
+                field_value = getattr(decl, field_name, None)
+                # Use "NULL" as default for empty fields to match VNACCS format
+                etree.SubElement(data_elem, field_name).text = str(field_value) if field_value else "NULL"
 
         # DHangMDDKs section (goods items)
+        dhangs_elem = etree.SubElement(root, "DHangMDDKs")
         if self.goods_items:
-            dhangs_elem = etree.SubElement(root, "DHangMDDKs")
-            dhang_elem = etree.SubElement(dhangs_elem, "DHangMDDK")
-
             for item in self.goods_items:
+                dhang_elem = etree.SubElement(dhangs_elem, "DHangMDDK")
                 item_data_elem = etree.SubElement(dhang_elem, "Data")
 
-                for field_name, field_value in item.model_dump(exclude_none=True).items():
-                    if field_value:
-                        etree.SubElement(item_data_elem, field_name).text = str(field_value)
+                for field_name in DHangMDDKData.model_fields.keys():
+                    field_value = getattr(item, field_name, None)
+                    etree.SubElement(item_data_elem, field_name).text = str(field_value) if field_value else "NULL"
 
-        # DTOKHAIMD_VNACCSs section (containers)
-        if self.container_data:
-            vnaccs_elem = etree.SubElement(root, "DTOKHAIMD_VNACCSs")
-            vnaccs_data_elem = etree.SubElement(vnaccs_elem, "DTOKHAIMD_VNACCS")
-            cont_data_elem = etree.SubElement(vnaccs_data_elem, "Data")
+                # Add empty placeholder sections for goods items (matching sample)
+                etree.SubElement(dhang_elem, "TTKTG_PP2s")
+                etree.SubElement(dhang_elem, "TTKTG_PP3s")
+                etree.SubElement(dhang_elem, "TTKTG_PP4s")
 
-            for field_name, field_value in self.container_data.model_dump(exclude_none=True).items():
-                if field_value:
-                    etree.SubElement(cont_data_elem, field_name).text = str(field_value)
-
-        # Add empty placeholder sections as per Go structure
+        # Empty placeholder sections as per sample XML
         etree.SubElement(root, "DHangMDKHs")
         etree.SubElement(root, "DHangMDTHs")
+        etree.SubElement(root, "DDieuChinhs")
+        etree.SubElement(root, "DHangMDDCs")
+        etree.SubElement(root, "DHangMDDC_CTs")
+        etree.SubElement(root, "DVan_Dons")
+        etree.SubElement(root, "TTKTG_PP1s")
+        etree.SubElement(root, "DTBTs")
+        etree.SubElement(root, "DTOKHAIMD_GPs")
+        etree.SubElement(root, "DTOKHAIMD_COs")
+        etree.SubElement(root, "DTOKHAIMD_DeNghiChuyenCKs")
+        etree.SubElement(root, "DLogInfos")
+        etree.SubElement(root, "DToKhaiMD_HoaDonTMs")
+        etree.SubElement(root, "DToKhaiMD_HopDongTMs")
+        etree.SubElement(root, "DChungTuBS_AMAs")
+        etree.SubElement(root, "DCHUNGTU_BSs")
+        etree.SubElement(root, "DDS_CONT_TKs")
 
         return etree.tostring(
             root,
