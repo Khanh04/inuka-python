@@ -2,19 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
-  Typography,
-  Table, TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Checkbox,
-  Select,
-  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   TextField,
-  InputLabel,
-  FormControl
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useTenantApiStore } from '../store/apiStore';
@@ -22,47 +14,90 @@ import LoadingOverlay from '../components/LoadingOverlay';
 import SelectDropdown from '../components/SelectDropdown';
 import ParametersTable from '../components/ParametersTable';
 import PdfViewer from '../components/PdfViewer';
-import { usePdfHandler } from '../hooks/usePdfHandler';
-import { useCanvas } from '../hooks/useCanvas';
+import SectionCanvas from '../components/SectionCanvas';
+import * as pdfjsLib from 'pdfjs-dist';
+
+if (typeof globalThis.window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.54/pdf.worker.min.mjs';
+}
 
 function TemplateEditor() {
   const navigate = useNavigate();
   const {
     templates,
     getAllTemplatesForTenant,
-    getAllFilesForTenant,
     getFormForTenantByTemplateID,
-    uploadFormByTemplateID
+    uploadFormByTemplateID,
+    createTemplate
   } = useTenantApiStore();
 
   const PLACEHOLDER_PATH = `${import.meta.env.BASE_URL}placeholder.png`;
 
   const [templateOptionsList, setTemplateOptionsList] = useState([])
   const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [pdfPageParams, setPdfPageParams] = useState({});
   const [loading, setLoading] = useState({ open: false, text: '', progress: 0 });
-
-  const pdfHandler = usePdfHandler();
-  const canvasHandler = useCanvas(isSelecting, pdfHandler.pdfDoc, pdfHandler.page, (newParam) => {
-    // Handle new parameter selection
-    if (pdfHandler.pdfDoc) {
-      setPdfPageParams((prevParams) => ({
-        ...prevParams,
-        [pdfHandler.page]: [...(prevParams[pdfHandler.page] || []), newParam],
-      }));
-    }
-  }, (resizeFn) => {
-    // Handle canvas resize
+  const [createTemplateDialogOpen, setCreateTemplateDialogOpen] = useState(false);
+  const [newTemplate, setNewTemplate] = useState({
+    name: '',
+    description: ''
   });
+  const [sections, setSections] = useState([{
+    id: 1,
+    name: 'Section 1',
+    imageSrc: PLACEHOLDER_PATH,
+    pdfDoc: null,
+    page: 1,
+    totalPages: 1,
+    pdfPageParams: {},
+    params: [],
+    isSelecting: false 
+  }]); 
 
   const fileInputRef = useRef(null);
   const pdfInputRef = useRef(null);
   const jsonInputRef = useRef(null);
 
-  // Handle parameter selection
-  const startSelection = () => {
-    setIsSelecting(true);
+  const canvasHandlersRef = useRef({});
+
+  useEffect(() => {
+    getAllTemplatesForTenant();
+  }, [getAllTemplatesForTenant]);
+
+  const toggleSelection = (sectionId) => {
+    setSections(prev => prev.map(s => 
+      s.id === sectionId 
+        ? { ...s, isSelecting: !s.isSelecting }
+        : { ...s, isSelecting: false } 
+    ));
+  };
+
+  const handleParamSelected = (sectionId) => (newParam) => {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    if (section.pdfDoc) {
+      setSections(prev => prev.map(s =>
+        s.id === sectionId
+          ? {
+              ...s,
+              pdfPageParams: {
+                ...s.pdfPageParams,
+                [s.page]: [...(s.pdfPageParams[s.page] || []), newParam]
+              }
+            }
+          : s
+      ));
+    } else {
+      setSections(prev => prev.map(s =>
+        s.id === sectionId
+          ? { ...s, params: [...s.params, newParam] }
+          : s
+      ));
+    }
+  };
+
+  const handleCanvasHandlerReady = (sectionId) => (handler) => {
+    canvasHandlersRef.current[sectionId] = handler;
   };
 
   const handleSelectTemplate = event => {
@@ -70,10 +105,83 @@ function TemplateEditor() {
     setSelectedTemplate(value);
   };
 
-  useEffect(() => {
-    getAllTemplatesForTenant(1);
-    getAllFilesForTenant(1);
-  }, [getAllTemplatesForTenant, getAllFilesForTenant]);
+  const handleTemplateNameChange = (event) => {
+    const value = event.target.value;
+    setNewTemplate(prev => ({
+      ...prev,
+      name: value
+    }));
+  };
+
+  const handleTemplateDescriptionChange = (event) => {
+    const value = event.target.value;
+    setNewTemplate(prev => ({
+      ...prev,
+      description: value
+    }));
+  };
+
+  const handleCreateTemplate = async () => {
+    const templateData = {
+      name: newTemplate.name,
+      description: newTemplate.description
+    };
+    await createTemplate(templateData);
+    getAllTemplatesForTenant();
+    setNewTemplate({ name: '', description: '' });
+    setCreateTemplateDialogOpen(false);
+  };
+
+  const addNewSection = () => {
+    const newSectionId = Math.max(...sections.map(s => s.id)) + 1;
+    const newSection = {
+      id: newSectionId,
+      name: `Section ${newSectionId}`,
+      imageSrc: PLACEHOLDER_PATH,
+      pdfDoc: null,
+      page: 1,
+      totalPages: 1,
+      pdfPageParams: {},
+      params: [],
+      isSelecting: false
+    };
+    setSections(prev => [...prev, newSection]);
+  };
+
+  const removeSection = (sectionId) => {
+    if (sections.length > 1) {
+      setSections(prev => prev.filter(s => s.id !== sectionId));
+    }
+  };
+
+  const updateSectionName = (sectionId, newName) => {
+    setSections(prev => prev.map(section => 
+      section.id === sectionId ? { ...section, name: newName } : section
+    ));
+  };
+
+  const renderPdfPage = async (pdfDoc, pageNum) => {
+    if (!pdfDoc || typeof document === 'undefined') return null;
+    
+    try {
+      const page = await pdfDoc.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+      
+      return canvas.toDataURL('image/png');
+    } catch (error) {
+      console.error('Error rendering PDF page:', error);
+      return null;
+    }
+  };
 
   useEffect(() => {
     if (selectedTemplate) {
@@ -94,241 +202,237 @@ function TemplateEditor() {
     }
   }, [templates]);
 
-  // Handle image upload
-  const handleImageUpload = (event) => {
+  const handleImageUpload = (event, sectionId) => {
     const file = event.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      pdfHandler.loadImage(file);
+    if (file?.type?.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setSections(prev => prev.map(section =>
+          section.id === sectionId
+            ? { ...section, imageSrc: e.target.result, pdfDoc: null, page: 1, totalPages: 1, pdfPageParams: {}, params: [], canvasHandler: null }
+            : section
+        ));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  // Handle PDF upload
-  const handlePdfUpload = async (event) => {
+  const handlePdfUpload = async (event, sectionId) => {
     const file = event.target.files[0];
-    if (file && file.type === 'application/pdf') {
-      await pdfHandler.loadPdf(file);
+    if (file?.type === 'application/pdf') {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        await page.render({
+          canvasContext: context,
+          viewport: viewport
+        }).promise;
+        
+        const imageSrc = canvas.toDataURL('image/png');
+        
+        setSections(prev => prev.map(section =>
+          section.id === sectionId
+            ? { 
+                ...section, 
+                imageSrc, 
+                pdfDoc: pdf, 
+                page: 1, 
+                totalPages: pdf.numPages, 
+                pdfPageParams: {}, 
+                params: [],
+                canvasHandler: null
+              }
+            : section
+        ));
+      } catch (error) {
+        console.error('Error loading PDF:', error);
+        alert('Error loading PDF file');
+      }
     }
   };
 
-
-
-  // Save template
-  const saveTemplate = async (isUpload) => {
-    if (pdfHandler.imageSrc === PLACEHOLDER_PATH || pdfHandler.imageSrc === window.location.href) {
+  const saveTemplate = async (isUpload, section = null) => {
+    if (!section) return;
+    
+    if (section.imageSrc === PLACEHOLDER_PATH || section.imageSrc === globalThis.location.href) {
       alert('Please import a template image or PDF first.');
       return;
     }
-    if ((pdfHandler.pdfDoc && Object.values(pdfPageParams).every((p) => p.length === 0)) || (!pdfHandler.pdfDoc && canvasHandler.params.length === 0)) {
+    if ((section.pdfDoc && Object.values(section.pdfPageParams).every((p) => p.length === 0)) || (!section.pdfDoc && section.params.length === 0)) {
       alert('Please add at least one parameter before saving the template.');
       return;
     }
     setLoading({ open: true, text: 'Processing template...', progress: 0 });
+    
+    if (isUpload && section) {
+      const formData = {
+        name: section.name,
+        image: section.imageSrc
+      };
+      
+      try {
+        await uploadFormByTemplateID(JSON.stringify(formData), selectedTemplate);
+        setLoading({ open: false, text: '', progress: 0 });
+      } catch (error) {
+        setLoading({ open: false, text: '', progress: 0 });
+        alert('Failed to upload template: ' + error.message);
+      }
+      return;
+    }
+
     const templateData = {
       description: `Template created on ${new Date().toLocaleDateString()}`,
       template: {
-        source: pdfHandler.pdfDoc
+        source: section.pdfDoc
           ? {
             type: 'pdf',
-            filename: pdfHandler.pdfOriginalFilename,
-            allPages: Object.keys(pdfPageParams).map(Number),
-            totalPages: pdfHandler.totalPages,
+            filename: 'uploaded.pdf', 
+            allPages: Object.keys(section.pdfPageParams).map(Number),
+            totalPages: section.totalPages,
           }
           : undefined,
         data: [],
       },
-      params: pdfHandler.pdfDoc ? [] : canvasHandler.params,
-      allPageParams: pdfHandler.pdfDoc ? pdfPageParams : undefined,
+      params: section.pdfDoc ? [] : section.params,
+      allPageParams: section.pdfDoc ? section.pdfPageParams : undefined,
     };
-    if (pdfHandler.pdfDoc) {
-      const allPageData = [];
-      const originalPage = pdfHandler.page;
-      for (let pageNum = 1; pageNum <= pdfHandler.totalPages; pageNum++) {
-        setLoading({ open: true, text: `Processing page ${pageNum} of ${pdfHandler.totalPages}...`, progress: (pageNum / pdfHandler.totalPages) * 100 });
-        await pdfHandler.renderPage(pageNum);
-        const img = document.querySelector('img'); // Assuming the image is rendered
-        allPageData.push({
-          page: pageNum,
-          binary: img.src.split(',')[1] || '',
-          size: { width: img.naturalWidth, height: img.naturalHeight },
-          type: 'image/png',
-        });
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      }
-      templateData.template.data = allPageData;
-      pdfHandler.setPage(originalPage);
-      await pdfHandler.renderPage(originalPage);
-      setLoading({ open: false, text: '', progress: 0 });
+    
+    if (section.pdfDoc) {
+      templateData.template.data = [{
+        page: section.page,
+        binary: section.imageSrc.split(',')[1] || '',
+        size: { width: 800, height: 1131 }, 
+        type: 'image/png',
+      }];
     } else {
-      const img = document.querySelector('img');
       templateData.template.data = [{
         page: 1,
-        binary: img.src.split(',')[1] || '',
-        size: { width: img.naturalWidth, height: img.naturalHeight },
+        binary: section.imageSrc.split(',')[1] || '',
+        size: { width: 800, height: 1131 }, 
         type: 'image/png',
       }];
     }
+    
     const jsonData = JSON.stringify(templateData, null, 4);
-    if (isUpload) {
-      uploadFormByTemplateID(jsonData, 1, selectedTemplate)
-    } else {
-      const blob = new Blob([jsonData], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `template_${Date.now()}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `template_${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
 
     setLoading({ open: false, text: '', progress: 0 });
   };
 
-  // Load template
   const handleLoadTemplate = (event) => {
     const file = event.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const jsonData = JSON.parse(e.target.result);
-          if (!jsonData.id || !jsonData.template || !jsonData.template.data) {
-            throw new Error('Invalid template format: missing required fields');
-          }
-          canvasHandler.setParams([]);
-          setPdfPageParams({});
-          const isPdfTemplate = jsonData.template.source && jsonData.template.source.type === 'pdf';
-          if (isPdfTemplate) {
-            pdfHandler.setPdfDoc({
-              numPages: jsonData.template.source.totalPages || 1,
-              getPage: (pageNum) => Promise.resolve({
-                getViewport: () => ({
-                  width: jsonData.template.data.find((d) => d.page === pageNum)?.size?.width || 800,
-                  height: jsonData.template.data.find((d) => d.page === pageNum)?.size?.height || 1131,
-                }),
-              }),
-            });
-            const pageImages = {};
-            jsonData.template.data.forEach((pageData) => {
-              const imgSrc = pageData.binary.startsWith('data:') ? pageData.binary : `data:${pageData.type || 'image/png'};base64,${pageData.binary}`;
-              pageImages[pageData.page] = imgSrc;
-            });
-            window.pageImages = pageImages;
-            pdfHandler.setImageSrc(pageImages[pdfHandler.page]);
-            setPdfPageParams(
-              Object.fromEntries(
-                Object.entries(jsonData.allPageParams || {}).map(([pageNum, pageParams]) => [
-                  pageNum,
-                  pageParams.map((param) => ({
-                    id: param.id || `Param ${Math.random().toString(36).substring(2, 9)}`,
-                    type: param.type || 'string',
-                    x1: parseFloat(param.x1 || 0).toFixed(2),
-                    y1: parseFloat(param.y1 || 0).toFixed(2),
-                    x2: parseFloat(param.x2 || 0).toFixed(2),
-                    y2: parseFloat(param.y2 || 0).toFixed(2),
-                    isMultiline: Boolean(param.isMultiline),
-                    page: Number(pageNum),
-                  })),
-                ])
-              )
-            );
-            canvasHandler.setParams([...(jsonData.allPageParams[pdfHandler.page] || [])]);
-          } else {
-            pdfHandler.setPdfDoc(null);
-            pdfHandler.setTotalPages(1);
-            pdfHandler.setPage(1);
-            const imgSrc = jsonData.template.data[0].binary.startsWith('data:') ? jsonData.template.data[0].binary : `data:${jsonData.template.data[0].type || 'image/png'};base64,${jsonData.template.data[0].binary}`;
-            pdfHandler.setImageSrc(imgSrc);
-            canvasHandler.setParams(jsonData.params.map((param) => ({
-              id: param.id || `Param ${canvasHandler.params.length + 1}`,
-              type: param.type || 'string',
-              x1: parseFloat(param.x1 || 0).toFixed(2),
-              y1: parseFloat(param.y1 || 0).toFixed(2),
-              x2: parseFloat(param.x2 || 0).toFixed(2),
-              y2: parseFloat(param.y2 || 0).toFixed(2),
-              isMultiline: Boolean(param.isMultiline),
-            })));
-          }
-          canvasHandler.renderParamsOnImage(pdfHandler.page);
-        } catch (error) {
-          console.error('Template loading error:', error);
-          alert('Error loading template: ' + error.message);
-        }
-      };
-      reader.readAsText(file);
+      alert('Template loading is not yet implemented for individual sections. Please use the global template loading feature.');
     }
   };
 
-  // Clear all params
-  const clearAllParams = () => {
-    if (window.confirm('Are you sure you want to clear all parameters?' + (pdfHandler.pdfDoc ? ' (This will clear parameters for the current page only)' : ''))) {
-      if (pdfHandler.pdfDoc) {
-        canvasHandler.setParams([]);
-        setPdfPageParams((prev) => {
-          const newParams = { ...prev };
-          delete newParams[pdfHandler.page];
-          return newParams;
-        });
+  const clearAllParams = (sectionId) => {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+    
+    if (globalThis.confirm('Are you sure you want to clear all parameters?' + (section.pdfDoc ? ' (This will clear parameters for the current page only)' : ''))) {
+      if (section.pdfDoc) {
+        setSections(prev => prev.map(s =>
+          s.id === sectionId
+            ? { ...s, pdfPageParams: { ...s.pdfPageParams, [s.page]: [] } }
+            : s
+        ));
       } else {
-        canvasHandler.setParams([]);
+        setSections(prev => prev.map(s =>
+          s.id === sectionId
+            ? { ...s, params: [] }
+            : s
+        ));
       }
-      canvasHandler.renderParamsOnImage(pdfHandler.page);
     }
   };
 
-  // Render parameter table
-  const renderParamsTable = () => {
+  const renderParamsTable = (section) => {
     return (
       <ParametersTable
-        pdfDoc={pdfHandler.pdfDoc}
-        pdfPageParams={pdfPageParams}
-        params={canvasHandler.params}
-        page={pdfHandler.page}
+        pdfDoc={section.pdfDoc}
+        pdfPageParams={section.pdfPageParams}
+        params={section.params}
+        page={section.page}
         onUpdateParam={(pageNum, newParams) => {
-          if (pageNum) {
-            setPdfPageParams((prev) => ({ ...prev, [pageNum]: newParams }));
-          } else {
-            canvasHandler.setParams(newParams);
-          }
+          setSections(prev => prev.map(s =>
+            s.id === section.id
+              ? pageNum
+                ? { ...s, pdfPageParams: { ...s.pdfPageParams, [pageNum]: newParams } }
+                : { ...s, params: newParams }
+              : s
+          ));
         }}
         onDeleteParam={(pageNum, index) => {
-          if (Number(pageNum) !== pdfHandler.page) {
-            if (window.confirm(`Are you sure you want to delete parameter from page ${pageNum}?`)) {
-              const newParams = [...pdfPageParams[pageNum]];
-              newParams.splice(index, 1);
-              setPdfPageParams((prev) => ({ ...prev, [pageNum]: newParams }));
-            }
-          } else {
-            const newParams = [...canvasHandler.params];
+          if (pageNum && Number(pageNum) !== section.page && globalThis.confirm(`Are you sure you want to delete parameter from page ${pageNum}?`)) {
+            const newParams = [...section.pdfPageParams[pageNum]];
             newParams.splice(index, 1);
-            canvasHandler.setParams(newParams);
-            setPdfPageParams((prevParams) => ({ ...prevParams, [pdfHandler.page]: newParams }));
-            canvasHandler.renderParamsOnImage(pdfHandler.page);
+            setSections(prev => prev.map(s =>
+              s.id === section.id
+                ? { ...s, pdfPageParams: { ...s.pdfPageParams, [pageNum]: newParams } }
+                : s
+            ));
+          } else {
+            if (section.pdfDoc) {
+              const newParams = [...(section.pdfPageParams[section.page] || [])];
+              newParams.splice(index, 1);
+              setSections(prev => prev.map(s =>
+                s.id === section.id
+                  ? { ...s, pdfPageParams: { ...s.pdfPageParams, [section.page]: newParams } }
+                  : s
+              ));
+            } else {
+              const newParams = [...section.params];
+              newParams.splice(index, 1);
+              setSections(prev => prev.map(s =>
+                s.id === section.id
+                  ? { ...s, params: newParams }
+                  : s
+              ));
+            }
           }
         }}
-        renderParamsOnImage={canvasHandler.renderParamsOnImage}
+        renderParamsOnImage={() => {
+          const canvasHandler = canvasHandlersRef.current[section.id];
+          if (canvasHandler && canvasHandler.renderParamsOnImage) {
+            const params = section.pdfDoc 
+              ? (section.pdfPageParams[section.page] || [])
+              : section.params;
+            canvasHandler.setParams(params);
+            canvasHandler.renderParamsOnImage(params);
+          }
+        }}
       />
     );
   };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '100vh', bgcolor: '#f8f9fa', p: 2, overflowY: 'auto', width: '100vw' }}>
-      {/* Header Buttons */}
-      <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+      {/* Top general navigation bar */}
+      <Box sx={{ display: 'flex', gap: 1, mt: 2, mb: 2, width: '100%', justifyContent: 'center' }}>
         <Button variant="contained" color="primary" onClick={() => navigate('/invoice')}>
           Go to Invoice Page
         </Button>
-        <Button variant="contained" color="primary" onClick={() => fileInputRef.current.click()}>
-          Import Template Image
+        <Button variant="contained" color="primary" onClick={() => setCreateTemplateDialogOpen(true)}>
+          Create new Template
         </Button>
-        <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageUpload} />
-        <Button variant="contained" color="primary" onClick={() => pdfInputRef.current.click()}>
-          Import PDF
-        </Button>
-        <input type="file" accept="application/pdf" ref={pdfInputRef} style={{ display: 'none' }} onChange={handlePdfUpload} />
-        {
-          templateOptionsList?.length &&
+        {Boolean(templateOptionsList?.length) &&
           <SelectDropdown
             label="Templates"
             value={selectedTemplate}
@@ -337,69 +441,184 @@ function TemplateEditor() {
             width={200}
           />
         }
-
-        <Button
-          variant="contained"
-          color="primary"
-          disabled={!pdfHandler.imageSrc || pdfHandler.imageSrc === PLACEHOLDER_PATH || (pdfHandler.pdfDoc && Object.values(pdfPageParams).every((p) => p.length === 0)) || (!pdfHandler.pdfDoc && canvasHandler.params.length === 0)}
-          onClick={() => saveTemplate(true)}
-        >
-          Upload Template
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          disabled={!pdfHandler.imageSrc || pdfHandler.imageSrc === PLACEHOLDER_PATH || (pdfHandler.pdfDoc && Object.values(pdfPageParams).every((p) => p.length === 0)) || (!pdfHandler.pdfDoc && canvasHandler.params.length === 0)}
-          onClick={saveTemplate}
-        >
-          Save Template
-        </Button>
-        <Button variant="contained" color="primary" onClick={() => jsonInputRef.current.click()}>
-          Load Template
-        </Button>
-        <input type="file" accept=".json" ref={jsonInputRef} style={{ display: 'none' }} onChange={handleLoadTemplate} />
       </Box>
 
-      <PdfViewer
-        imageSrc={pdfHandler.imageSrc}
-        pdfDoc={pdfHandler.pdfDoc}
-        page={pdfHandler.page}
-        totalPages={pdfHandler.totalPages}
-        onPageChange={pdfHandler.handlePageChange}
-        loading={pdfHandler.loading}
-        onCanvasReady={(rect) => {
-          // Handle canvas resize
-        }}
-      >
-        <div style={{ position: 'absolute', zIndex: 99 }} >
-          <canvas ref={canvasHandler.canvasRef} />
-        </div>
-      </PdfViewer>
+      {/* PDF Viewer and Parameters Panel Sections */}
+      {sections.map((section) => (
+        <Box key={section.id} sx={{ width: '100%', mb: 4, position: 'relative' }} data-section={section.id}>
+          {/* Section Header with Controls */}
+          <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
+            <TextField
+              label="Form Name"
+              value={section.name}
+              onChange={(e) => updateSectionName(section.id, e.target.value)}
+              size="small"
+              sx={{ mr: 2, minWidth: 150 }}
+            />
+            <Button variant="outlined" size="small" onClick={() => {
+              fileInputRef.current.dataset.sectionId = section.id;
+              fileInputRef.current.click();
+            }}>
+              Import Image
+            </Button>
+            <Button variant="outlined" size="small" onClick={() => {
+              pdfInputRef.current.dataset.sectionId = section.id;
+              pdfInputRef.current.click();
+            }}>
+              Import PDF
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              color="primary"
+              disabled={!section.imageSrc || section.imageSrc === PLACEHOLDER_PATH || (section.pdfDoc && Object.values(section.pdfPageParams).every((p) => p.length === 0)) || (!section.pdfDoc && section.params.length === 0)}
+              onClick={() => saveTemplate(true, section)}
+            >
+              Upload Template Form to Server
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              color="primary"
+              disabled={!section.imageSrc || section.imageSrc === PLACEHOLDER_PATH || (section.pdfDoc && Object.values(section.pdfPageParams).every((p) => p.length === 0)) || (!section.pdfDoc && section.params.length === 0)}
+              onClick={() => saveTemplate(false, section)}
+            >
+              Save Template Form on Local
+            </Button>
+            <Button variant="outlined" size="small" onClick={() => jsonInputRef.current.click()}>
+              Load Template Form
+            </Button>
+            {sections.length > 1 && (
+              <Button variant="outlined" size="small" color="error" onClick={() => removeSection(section.id)}>
+                Remove Section
+              </Button>
+            )}
+          </Box>
 
-      {/* Parameters Panel */}
-      <Box sx={{ flex: 1, minWidth: 400, maxWidth: 600, border: '1px solid black', p: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Button
-            variant="contained"
-            color={isSelecting ? 'success' : 'primary'}
-            disabled={pdfHandler.imageSrc === PLACEHOLDER_PATH || pdfHandler.imageSrc === window.location.href}
-            onClick={startSelection}
-          >
-            Select Params
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            disabled={(pdfHandler.pdfDoc && !(pdfPageParams[pdfHandler.page]?.length > 0)) || (!pdfHandler.pdfDoc && canvasHandler.params.length === 0)}
-            onClick={clearAllParams}
-          >
-            {pdfHandler.pdfDoc ? 'Clear Page Params' : 'Clear All Params'}
-          </Button>
+          {/* PDF Viewer and Parameters Panel */}
+          <Box sx={{ display: 'flex', gap: 2, maxWidth: 1400, width: '100%', position: 'relative' }}>
+            <PdfViewer
+              imageSrc={section.imageSrc}
+              pdfDoc={section.pdfDoc}
+              page={section.page}
+              totalPages={section.totalPages}
+              onPageChange={async (newPage) => {
+                if (section.pdfDoc) {
+                  const newImageSrc = await renderPdfPage(section.pdfDoc, newPage);
+                  if (newImageSrc) {
+                    setSections(prev => prev.map(s =>
+                      s.id === section.id ? { ...s, page: newPage, imageSrc: newImageSrc } : s
+                    ));
+                  }
+                } else {
+                  setSections(prev => prev.map(s =>
+                    s.id === section.id ? { ...s, page: newPage } : s
+                  ));
+                }
+              }}
+              loading={false}
+              onCanvasReady={() => {
+              
+              }}
+            />
+
+            {/* Parameters Panel */}
+            <Box sx={{ flex: 1, border: '1px solid black', p: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Button
+                  variant="contained"
+                  color={section.isSelecting ? 'success' : 'primary'}
+                  disabled={section.imageSrc === PLACEHOLDER_PATH || section.imageSrc === globalThis.location.href}
+                  onClick={() => toggleSelection(section.id)}
+                >
+                  {section.isSelecting ? 'Stop Selecting' : 'Select Params'}
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={(section.pdfDoc && (section.pdfPageParams[section.page]?.length <= 0)) || (section.pdfDoc == null && section.params.length === 0)}
+                  onClick={() => clearAllParams(section.id)}
+                >
+                  {section.pdfDoc ? 'Clear Page Params' : 'Clear All Params'}
+                </Button>
+              </Box>
+              {renderParamsTable(section)}
+            </Box>
+          </Box>
+
+          {/* Section Canvas Overlay */}
+          <SectionCanvas
+            section={section}
+            isSelecting={section.isSelecting}
+            onParamSelected={handleParamSelected(section.id)}
+            onCanvasHandlerReady={handleCanvasHandlerReady(section.id)}
+          />
         </Box>
-        {renderParamsTable()}
+      ))}
+
+      {/* Add New Section Button */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, mb: 2 }}>
+        <Button variant="contained" color="secondary" onClick={addNewSection}>
+          Add New Section
+        </Button>
       </Box>
+
+      {/* Hidden file inputs */}
+      <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={(e) => {
+        const sectionId = Number.parseInt(e.target.dataset.sectionId);
+        handleImageUpload(e, sectionId);
+      }} />
+      <input type="file" accept="application/pdf" ref={pdfInputRef} style={{ display: 'none' }} onChange={(e) => {
+        const sectionId = Number.parseInt(e.target.dataset.sectionId);
+        handlePdfUpload(e, sectionId);
+      }} />
+      <input type="file" accept=".json" ref={jsonInputRef} style={{ display: 'none' }} onChange={handleLoadTemplate} />
 
       <LoadingOverlay {...loading} />
+
+      <Dialog 
+        open={createTemplateDialogOpen} 
+        onClose={() => setCreateTemplateDialogOpen(false)}
+        sx={{
+          '& .MuiDialog-paper': {
+            minWidth: 400,
+            minHeight: 300,
+            borderRadius: 2,
+          }
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>Create New Template</DialogTitle>
+        <DialogContent sx={{ px: 3, pb: 2 }}>
+          <TextField
+            label="Template Name"
+            fullWidth
+            value={newTemplate.name}
+            onChange={handleTemplateNameChange}
+            sx={{ mt: 1, mb: 2 }}
+          />
+          <TextField
+            label="Template Description"
+            fullWidth
+            multiline
+            rows={3}
+            value={newTemplate.description}
+            onChange={handleTemplateDescriptionChange}
+            sx={{ mt: 1, mb: 2 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, pt: 0 }}>
+          <Button onClick={() => setCreateTemplateDialogOpen(false)} variant="outlined">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreateTemplate}
+            disabled={!newTemplate.name.trim()}
+            variant="contained"
+          >
+            Create Template
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

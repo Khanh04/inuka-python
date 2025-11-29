@@ -9,7 +9,6 @@ const PdfViewer = ({
   onPageChange,
   loading,
   onCanvasReady,
-  children, // For overlaying canvas or other elements
 }) => {
   const imageRef = useRef(null);
   const containerRef = useRef(null);
@@ -18,11 +17,18 @@ const PdfViewer = ({
     const resizeCanvas = () => {
       if (imageRef.current && onCanvasReady) {
         const img = imageRef.current;
-        const container = containerRef.current;
-        if (!container) return;
+        if (!containerRef.current) return;
 
         const rect = img.getBoundingClientRect();
-        onCanvasReady(rect);
+        
+        const viewportRect = {
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        };
+        
+        onCanvasReady(viewportRect);
       }
     };
 
@@ -35,23 +41,25 @@ const PdfViewer = ({
     }
 
     window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('scroll', resizeCanvas); // Handle scrolling
 
     return () => {
       if (img) {
         img.removeEventListener('load', resizeCanvas);
       }
       window.removeEventListener('resize', resizeCanvas);
+      window.removeEventListener('scroll', resizeCanvas);
     };
   }, [imageSrc, onCanvasReady]);
 
   return (
-    <>
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1}}>
       {/* PDF Controls */}
       {pdfDoc && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
           <Button
             variant="outlined"
-            disabled={page <= 1 || loading.open}
+            disabled={page <= 1 || loading}
             onClick={() => onPageChange(page - 1)}
           >
             Previous Page
@@ -61,7 +69,7 @@ const PdfViewer = ({
           </Typography>
           <Button
             variant="outlined"
-            disabled={page >= totalPages || loading.open}
+            disabled={page >= totalPages || loading}
             onClick={() => onPageChange(page + 1)}
           >
             Next Page
@@ -95,9 +103,8 @@ const PdfViewer = ({
           }}
           onDragStart={(e) => e.preventDefault()}
         />
-        {children}
       </Box>
-    </>
+    </Box>
   );
 };
 
