@@ -10,12 +10,7 @@ import uvicorn
 # Run Alembic migrations before starting the server
 print("Running database migrations...", file=sys.stderr)
 try:
-    result = subprocess.run(
-        ["alembic", "upgrade", "head"],
-        check=True,
-        capture_output=True,
-        text=True
-    )
+    result = subprocess.run(["alembic", "upgrade", "head"], check=True, capture_output=True, text=True)
     print("Migrations completed successfully!", file=sys.stderr)
     if result.stdout:
         print(result.stdout, file=sys.stderr)
