@@ -273,14 +273,58 @@ function TemplateEditor() {
     setLoading({ open: true, text: 'Processing template...', progress: 0 });
     
     if (isUpload && section) {
-      const formData = {
+      // Collect all page data for PDF uploads
+      const allPagesData = [];
+      if (section.pdfDoc) {
+        // Render all pages with parameters
+        const pagesWithParams = Object.keys(section.pdfPageParams)
+          .map(Number)
+          .filter(pageNum => section.pdfPageParams[pageNum]?.length > 0);
+
+        for (const pageNum of pagesWithParams) {
+          const pageImageSrc = await renderPdfPage(section.pdfDoc, pageNum);
+          if (pageImageSrc) {
+            allPagesData.push({
+              page: pageNum,
+              binary: pageImageSrc.split(',')[1] || '',
+              size: { width: 800, height: 1131 },
+              type: 'image/png',
+            });
+          }
+        }
+      } else {
+        // Single image
+        allPagesData.push({
+          page: 1,
+          binary: section.imageSrc.split(',')[1] || '',
+          size: { width: 800, height: 1131 },
+          type: 'image/png',
+        });
+      }
+
+      const payload = {
         name: section.name,
-        image: section.imageSrc
+        formType: 'customs_export',
+        description: `Template created on ${new Date().toLocaleDateString()}`,
+        template: {
+          source: section.pdfDoc
+            ? {
+              type: 'pdf',
+              filename: 'uploaded.pdf',
+              allPages: Object.keys(section.pdfPageParams).map(Number),
+              totalPages: section.totalPages,
+            }
+            : undefined,
+          data: allPagesData,
+        },
+        params: section.pdfDoc ? [] : section.params,
+        allPageParams: section.pdfDoc ? section.pdfPageParams : undefined,
       };
-      
+
       try {
-        await uploadFormByTemplateID(JSON.stringify(formData), selectedTemplate);
+        await uploadFormByTemplateID(JSON.stringify(payload), selectedTemplate);
         setLoading({ open: false, text: '', progress: 0 });
+        alert('Template uploaded successfully!');
       } catch (error) {
         setLoading({ open: false, text: '', progress: 0 });
         alert('Failed to upload template: ' + error.message);

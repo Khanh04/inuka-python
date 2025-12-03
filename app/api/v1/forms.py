@@ -47,6 +47,8 @@ async def create_form(
 
     Expects JSON payload with structure:
     {
+        "name": "Form Name",
+        "formType": "customs_export",
         "description": "Template created on date",
         "template": {
             "source": {
@@ -64,7 +66,6 @@ async def create_form(
                 }
             ]
         },
-        "params": [],
         "allPageParams": {
             "1": [
                 {

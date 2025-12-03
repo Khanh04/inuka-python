@@ -25,36 +25,10 @@ export const formsApi = {
   },
 
   uploadFormByTemplateID: async (formData, templateID) => {
-    const headers = {
-      ...(token && { Authorization: `Bearer ${token}` }),
-    };
-
-    const formDataToSend = new FormData();
-    formDataToSend.append('name', formData.name);
-    
-    // Convert base64 to blob if needed
-    let imageBlob;
-    if (formData.image.startsWith('data:')) {
-      const base64Data = formData.image.split(',')[1];
-      const mimeType = formData.image.match(/data:([^;]+)/)?.[1] || 'image/png';
-      const byteString = atob(base64Data);
-      const ab = new ArrayBuffer(byteString.length);
-      const ia = new Uint8Array(ab);
-      for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
-      }
-      imageBlob = new Blob([ab], { type: mimeType });
-    } else {
-      // Assume it's already a blob or file
-      imageBlob = formData.image;
-    }
-    
-    formDataToSend.append('image', imageBlob, 'form.png');
-
     const response = await fetch(`${baseUrl}/api/templates/${templateID}/forms`, {
       method: 'POST',
-      headers,
-      body: formDataToSend,
+      headers: getHeaders('application/json'),
+      body: formData,
     });
 
     if (!response.ok) {
