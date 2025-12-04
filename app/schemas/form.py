@@ -49,6 +49,7 @@ class FormResponse(FormBase):
     template_id: int
     name: str
     form_type: FormType = Field(..., alias="formType")
+    params: list[Any] | None = None
     created_at: datetime
     updated_at: datetime
 
