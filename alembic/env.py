@@ -22,15 +22,25 @@ config = context.config
 # Get settings and override sqlalchemy.url
 settings = get_settings()
 
-# Determine database URL based on environment
-# Check if DATABASE_URL is set (Railway/Production) or use local PostgreSQL
+# Determine database URL based on environment - mirror app/core/database.py logic
+# Priority: DATABASE_URL (Railway) > PG* variables > POSTGRES_* variables > SQLite
 database_url_env = os.getenv("DATABASE_URL")
 if database_url_env:
-    # Railway provides DATABASE_URL directly
-    database_url = database_url_env.replace("postgresql://", "postgresql+psycopg2://").replace("+asyncpg", "")
-else:
-    # Use local PostgreSQL (default: postgresql://postgres:postgres@localhost:5432/inuka)
+    # Railway/Heroku provide DATABASE_URL
+    database_url = database_url_env
+    # Handle postgres:// vs postgresql:// and remove asyncpg for alembic
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql+psycopg2://", 1)
+    else:
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg2://", 1).replace(
+            "+asyncpg", "+psycopg2"
+        )
+elif settings.PGHOST or (settings.POSTGRES_HOST and settings.POSTGRES_HOST != "localhost"):
+    # Use PostgreSQL if configured
     database_url = settings.database_url.replace("+asyncpg", "+psycopg2")
+else:
+    # Fall back to SQLite for local development (same as application)
+    database_url = settings.sqlite_url.replace("+aiosqlite", "")
 
 config.set_main_option("sqlalchemy.url", database_url)
 

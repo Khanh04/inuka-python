@@ -1,9 +1,9 @@
 """Form schemas for request/response."""
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class FormType(str, Enum):
@@ -16,56 +16,40 @@ class FormType(str, Enum):
     OTHER = "other"
 
 
-class FormCreate(BaseModel):
-    """Schema for creating a form.
+class FormBase(BaseModel):
+    """Base schema for form with common fields."""
 
-    Matches the payload structure from the frontend template editor:
-    - name: Human-readable name of the form
-    - formType: Type/category of the form
-    - description: Human-readable description of the template
-    - template: Contains source metadata and data array with page images
-    - params: Legacy field (currently unused)
-    - allPageParams: Map of page numbers to parameter definitions
-    """
+    name: str | None = None
+    form_type: FormType | None = Field(None, alias="formType")
+    description: str | None = None
+    template: dict[str, Any] | None = None
+    all_page_params: dict[str, Any] | None = Field(None, alias="allPageParams")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class FormCreate(FormBase):
+    """Schema for creating a form."""
 
     name: str
     form_type: FormType = Field(..., alias="formType")
-    description: Optional[str] = None
-    template: Optional[Dict[str, Any]] = None  # Contains source and data array
-    params: Optional[Dict[str, Any]] = None  # Legacy field
-    all_page_params: Optional[Dict[str, Any]] = Field(None, alias="allPageParams")  # Map of page params
-
-    class Config:
-        populate_by_name = True  # Allow both snake_case and camelCase
+    params: list[Any] | None = None  # Legacy field
 
 
-class FormUpdate(BaseModel):
+class FormUpdate(FormBase):
     """Schema for updating a form."""
 
-    name: Optional[str] = None
-    form_type: Optional[FormType] = Field(None, alias="formType")
-    description: Optional[str] = None
-    template: Optional[Dict[str, Any]] = None
-    params: Optional[Dict[str, Any]] = None
-    all_page_params: Optional[Dict[str, Any]] = Field(None, alias="allPageParams")
-
-    class Config:
-        populate_by_name = True
+    params: list[Any] | None = None
 
 
-class FormResponse(BaseModel):
+class FormResponse(FormBase):
     """Response schema for form."""
 
     id: int
     template_id: int
     name: str
     form_type: FormType = Field(..., alias="formType")
-    description: Optional[str] = None
-    template: Optional[Dict[str, Any]] = None
-    all_page_params: Optional[Dict[str, Any]] = Field(None, alias="allPageParams")
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-        populate_by_name = True
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
