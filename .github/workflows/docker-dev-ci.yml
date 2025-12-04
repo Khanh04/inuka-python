@@ -1,0 +1,93 @@
+name: Docker Development CI
+
+on:
+  pull_request:
+    branches: [ master, main, develop ]
+  push:
+    branches: [ develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: inuka
+          POSTGRES_PASSWORD: inuka_test_password
+          POSTGRES_DB: inuka_template_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y tesseract-ocr tesseract-ocr-eng libgl1 libglib2.0-0 poppler-utils
+
+    - name: Install Python dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Run linting
+      run: |
+        black --check app tests
+        isort --check-only app tests
+        pylint app
+
+    - name: Run type checking
+      run: |
+        mypy app
+
+    - name: Run tests
+      env:
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_USER: inuka
+        POSTGRES_PASSWORD: inuka_test_password
+        POSTGRES_DB: inuka_template_db
+        JWT_SECRET: test-secret-key
+      run: |
+        pytest --cov=app --cov-report=xml --cov-report=term tests/
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Build development images
+      run: |
+        docker-compose build
+
+    - name: Test Docker Compose setup
+      run: |
+        docker-compose up -d
+        sleep 30
+        docker-compose ps
+        curl -f http://localhost:8080/health || exit 1
+        docker-compose down

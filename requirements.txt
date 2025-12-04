@@ -89,3 +89,4 @@ virtualenv==20.35.4
 watchfiles==1.1.1
 websockets==15.0.1
 yarl==1.22.0
+httpx==0.25.2
