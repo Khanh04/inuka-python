@@ -6,7 +6,6 @@ const getHeaders = (contentType = 'application/json') => ({
   ...(token && { Authorization: `Bearer ${token}` }),
 });
 
-// Common fetch wrapper
 const apiRequest = async (url, options = {}) => {
   const response = await fetch(`${baseUrl}${url}`, {
     headers: getHeaders(),
@@ -25,7 +24,7 @@ export const filesApi = {
 
   getFileForTenantByFileID: async (fileID) => {
     const data = await apiRequest(`/api/files/${fileID}`);
-    return [data]; // Store as array for consistency
+    return [data]; 
   },
 
   createNewFile: async (file) => {

@@ -1,13 +1,11 @@
 const baseUrl = import.meta.env.VITE_API_URL || '';
 const token = 1111;
 
-// Common headers function
 const getHeaders = (contentType = 'application/json') => ({
   'Content-Type': contentType,
   ...(token && { Authorization: `Bearer ${token}` }),
 });
 
-// Common fetch wrapper
 const apiRequest = async (url, options = {}) => {
   const response = await fetch(`${baseUrl}${url}`, {
     headers: getHeaders(),
@@ -32,7 +30,6 @@ export const formsApi = {
     const formDataToSend = new FormData();
     formDataToSend.append('name', formData.name);
     
-    // Convert base64 to blob if needed
     let imageBlob;
     if (formData.image.startsWith('data:')) {
       const base64Data = formData.image.split(',')[1];
@@ -45,7 +42,6 @@ export const formsApi = {
       }
       imageBlob = new Blob([ab], { type: mimeType });
     } else {
-      // Assume it's already a blob or file
       imageBlob = formData.image;
     }
     

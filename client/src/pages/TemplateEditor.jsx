@@ -272,21 +272,21 @@ function TemplateEditor() {
     }
     setLoading({ open: true, text: 'Processing template...', progress: 0 });
     
-    if (isUpload && section) {
-      const formData = {
-        name: section.name,
-        image: section.imageSrc
-      };
+    // if (isUpload && section) {
+    //   const formData = {
+    //     name: section.name,
+    //     image: section.imageSrc
+    //   };
       
-      try {
-        await uploadFormByTemplateID(JSON.stringify(formData), selectedTemplate);
-        setLoading({ open: false, text: '', progress: 0 });
-      } catch (error) {
-        setLoading({ open: false, text: '', progress: 0 });
-        alert('Failed to upload template: ' + error.message);
-      }
-      return;
-    }
+    //   try {
+    //     await uploadFormByTemplateID(JSON.stringify(formData), selectedTemplate);
+    //     setLoading({ open: false, text: '', progress: 0 });
+    //   } catch (error) {
+    //     setLoading({ open: false, text: '', progress: 0 });
+    //     alert('Failed to upload template: ' + error.message);
+    //   }
+    //   return;
+    // }
 
     const templateData = {
       description: `Template created on ${new Date().toLocaleDateString()}`,
