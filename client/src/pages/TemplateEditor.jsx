@@ -26,7 +26,6 @@ function TemplateEditor() {
   const {
     templates,
     getAllTemplatesForTenant,
-    getFormForTenantByTemplateID,
     uploadFormByTemplateID,
     createTemplate
   } = useTenantApiStore();
@@ -182,12 +181,6 @@ function TemplateEditor() {
       return null;
     }
   };
-
-  useEffect(() => {
-    if (selectedTemplate) {
-      getFormForTenantByTemplateID(1, selectedTemplate);
-    }
-  }, [selectedTemplate, getFormForTenantByTemplateID]);
 
   useEffect(() => {
     if (templates?.length) {
