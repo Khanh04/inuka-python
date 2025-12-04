@@ -23,17 +23,14 @@ config = context.config
 settings = get_settings()
 
 # Determine database URL based on environment
-# Check if DATABASE_URL is set (Railway/Production) or if PostgreSQL variables are set
+# Check if DATABASE_URL is set (Railway/Production) or use local PostgreSQL
 database_url_env = os.getenv("DATABASE_URL")
 if database_url_env:
     # Railway provides DATABASE_URL directly
     database_url = database_url_env.replace("postgresql://", "postgresql+psycopg2://").replace("+asyncpg", "")
-elif settings.PGHOST:
-    # Use PostgreSQL for production
-    database_url = settings.database_url.replace("+asyncpg", "+psycopg2")
 else:
-    # Use SQLite for local development
-    database_url = settings.sqlite_url.replace("+aiosqlite", "")
+    # Use local PostgreSQL (default: postgresql://postgres:postgres@localhost:5432/inuka)
+    database_url = settings.database_url.replace("+asyncpg", "+psycopg2")
 
 config.set_main_option("sqlalchemy.url", database_url)
 

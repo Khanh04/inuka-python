@@ -1,10 +1,7 @@
 """Form API endpoints."""
-import base64
 from typing import List
 
-from fastapi import APIRouter, Depends
-from fastapi import File as FastAPIFile
-from fastapi import Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -40,27 +37,67 @@ async def get_forms(
     response_model=FormResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def upload_form(
+async def create_form(
     template_id: int,
-    name: str = Form(...),
-    image: UploadFile = FastAPIFile(...),
+    form_data: FormCreate,
     db: AsyncSession = Depends(get_db),
     # token: dict = Depends(verify_token),  # Temporarily disabled
 ):
-    """Upload a form image for a template."""
+    """Create a form with template data and parameters.
+
+    Expects JSON payload with structure:
+    {
+        "name": "Form Name",
+        "formType": "customs_export",
+        "description": "Template created on date",
+        "template": {
+            "source": {
+                "type": "pdf",
+                "filename": "uploaded.pdf",
+                "allPages": [1, 2],
+                "totalPages": 2
+            },
+            "data": [
+                {
+                    "page": 1,
+                    "binary": "base64_encoded_image_data",
+                    "size": {"width": 800, "height": 1131},
+                    "type": "image/png"
+                }
+            ]
+        },
+        "allPageParams": {
+            "1": [
+                {
+                    "id": "Field Name",
+                    "type": "string",
+                    "x1": "100",
+                    "y1": "100",
+                    "x2": "200",
+                    "y2": "120",
+                    "isMultiline": false,
+                    "page": 1
+                }
+            ]
+        }
+    }
+    """
     # Verify template exists
     template_repo = TemplateRepository(db)
     template = await template_repo.get_by_id(template_id)
     if not template:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
 
-    # Read and encode image
-    image_bytes = await image.read()
-    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-
-    # Create form
+    # Create form with template structure and page params
     repo = FormRepository(db)
-    form = FormModel(template_id=template_id, name=name, image_data=image_base64, params={})
+    form = FormModel(
+        template_id=template_id,
+        name=form_data.name,
+        form_type=form_data.form_type.value,
+        description=form_data.description,
+        template=form_data.template,
+        all_page_params=form_data.all_page_params,
+    )
     form = await repo.create(form)
     return form
 
@@ -97,7 +134,12 @@ async def update_form(
     if not form or form.template_id != template_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found")
 
-    form = await repo.update(form_id, **form_data.model_dump(exclude_unset=True))
+    # Convert enum to string value for database
+    update_data = form_data.model_dump(exclude_unset=True)
+    if "form_type" in update_data and update_data["form_type"] is not None:
+        update_data["form_type"] = update_data["form_type"].value
+
+    form = await repo.update(form_id, **update_data)
     return form
 
 
