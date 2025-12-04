@@ -31,6 +31,7 @@ class Form(Base):
     description = Column(Text, nullable=True)
     template = Column(JSON, nullable=True)  # CapturedTemplate JSON structure
     all_page_params = Column(JSON, nullable=True)  # Map of page params
+    params = Column(JSON, nullable=True)  # List of parameters
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
