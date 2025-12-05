@@ -18,7 +18,9 @@ class DocumentResponse(BaseModel):
     id: int
     file_id: int
     form_id: int
-    image_path: Optional[str] = None
+    name: Optional[str] = None
+    original_file: Optional[Dict[str, Any]] = None
+    processing_file: Optional[Dict[str, Any]] = None
     params: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime

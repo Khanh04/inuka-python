@@ -56,10 +56,39 @@ python app/main.py
 
 The API will be available at `http://localhost:8080`
 
-### Using Docker
+### Using Docker (Recommended for Development)
+
+For a complete development environment with PostgreSQL, backend, and frontend:
 
 ```bash
-# Build image
+# Quick start - using helper script
+./dev.sh start
+
+# Or use docker-compose directly
+docker-compose up -d
+```
+
+**Services will be available at:**
+- Backend API: http://localhost:8080
+- API Documentation: http://localhost:8080/docs
+- Frontend: http://localhost:5173
+
+**Common commands:**
+```bash
+./dev.sh start      # Start all services
+./dev.sh logs       # View logs
+./dev.sh stop       # Stop all services
+./dev.sh shell      # Open shell in backend container
+./dev.sh test       # Run tests
+./dev.sh help       # Show all commands
+```
+
+See [README.docker.md](README.docker.md) for detailed Docker development guide.
+
+### Using Docker for Production
+
+```bash
+# Build production image
 docker build -t inuka-python-backend .
 
 # Run container
