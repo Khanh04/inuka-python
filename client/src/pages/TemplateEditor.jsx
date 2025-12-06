@@ -270,11 +270,10 @@ function TemplateEditor() {
       const allPagesData = [];
       if (section.pdfDoc) {
         // Render all pages with parameters
-        const pagesWithParams = Object.keys(section.pdfPageParams)
-          .map(Number)
-          .filter(pageNum => section.pdfPageParams[pageNum]?.length > 0);
+        const totalPages = section.totalPages;
 
-        for (const pageNum of pagesWithParams) {
+        for (let i = 1; i <= totalPages; i++) {
+          const pageNum = i;
           const pageImageSrc = await renderPdfPage(section.pdfDoc, pageNum);
           if (pageImageSrc) {
             allPagesData.push({
@@ -317,7 +316,6 @@ function TemplateEditor() {
       try {
         await uploadFormByTemplateID(JSON.stringify(payload), selectedTemplate);
         setLoading({ open: false, text: '', progress: 0 });
-        alert('Template uploaded successfully!');
       } catch (error) {
         setLoading({ open: false, text: '', progress: 0 });
         alert('Failed to upload template: ' + error.message);

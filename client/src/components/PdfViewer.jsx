@@ -17,18 +17,40 @@ const PdfViewer = ({
     const resizeCanvas = () => {
       if (imageRef.current && onCanvasReady) {
         const img = imageRef.current;
-        if (!containerRef.current) return;
+        const container = containerRef.current;
+        if (!container) return;
 
-        const rect = img.getBoundingClientRect();
+        // Get the section container (parent with data-section attribute)
+        const sectionContainer = container.closest('[data-section]');
+        if (!sectionContainer) return;
+
+        const imgRect = img.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const sectionRect = sectionContainer.getBoundingClientRect();
         
-        const viewportRect = {
-          left: rect.left,
-          top: rect.top,
-          width: rect.width,
-          height: rect.height,
+        // Position canvas wrapper to match the image container (orange border box)
+        // Then we'll position the actual canvas to match the image within
+        const containerViewportRect = {
+          left: containerRect.left - sectionRect.left,
+          top: containerRect.top - sectionRect.top,
+          width: containerRect.width,
+          height: containerRect.height,
         };
         
-        onCanvasReady(viewportRect);
+        // Image position within the container
+        const imageOffset = {
+          left: imgRect.left - containerRect.left,
+          top: imgRect.top - containerRect.top,
+          width: imgRect.width,
+          height: imgRect.height,
+        };
+        
+        console.log('PdfViewer positioning calculation:', {
+          containerPosition: containerViewportRect,
+          imageOffset: imageOffset
+        });
+        
+        onCanvasReady({ container: containerViewportRect, image: imageOffset });
       }
     };
 

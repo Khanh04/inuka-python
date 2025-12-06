@@ -59,7 +59,7 @@ export const useTenantApiStore = create((set) => ({
     set({ loading: true, error: null });
     try {
       const data = await formsApi.getFormForTenantByTemplateID(templateID);
-      set({ form: data, loading: false });
+      set({ forms: data, loading: false });
     } catch (error) {
       set({ error: error.message, loading: false });
     }

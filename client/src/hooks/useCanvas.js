@@ -1,27 +1,49 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useLayoutEffect } from 'react';
 import * as fabric from 'fabric';
 
 export const useCanvas = (isSelecting, pdfDoc, page, onSelectionComplete) => {
-  const canvasRef = useRef(null);
+  const internalCanvasRef = useRef(null); // Internal ref for Fabric.js operations
   const fabricCanvasRef = useRef(null);
   const [params, setParams] = useState([]);
   const [isCanvasReady, setIsCanvasReady] = useState(false);
+  const isCanvasReadyRef = useRef(false); // Ref that always has the current isCanvasReady value
+  const [canvasElement, setCanvasElement] = useState(null);
+  const isInitializedRef = useRef(false); // Track if we've already initialized
 
-  useEffect(() => {
-    if (!canvasRef.current) return;
-    
-    if (isCanvasReady && fabricCanvasRef.current) {
+  // Callback ref to capture when canvas element is attached
+  const canvasRef = useCallback((element) => {
+    console.log('useCanvas: canvasRef callback called', { element: !!element, internalRef: !!internalCanvasRef.current });
+    internalCanvasRef.current = element;
+    if (element && !isInitializedRef.current) {
+      console.log('useCanvas: Canvas element attached to DOM, triggering state update');
+      isInitializedRef.current = true;
+      setCanvasElement(element); // This triggers re-render and effect below
+    }
+  }, []); // Empty deps - this callback never changes
+
+  // Initialize canvas when element becomes available - use useLayoutEffect for synchronous execution
+  useLayoutEffect(() => {
+    console.log('useCanvas: useLayoutEffect triggered', { 
+      canvasElement: !!canvasElement, 
+      isCanvasReady,
+      internalRef: !!internalCanvasRef.current 
+    });
+
+    if (!canvasElement || isCanvasReady) {
+      console.log('useCanvas: Skipping initialization', { hasElement: !!canvasElement, isReady: isCanvasReady });
       return;
     }
 
+    console.log('useCanvas: Starting canvas initialization');
+    
     const timer = setTimeout(() => {
       try {
-        if (!canvasRef.current) {
-          console.error('Canvas ref lost during initialization timeout');
+        if (!internalCanvasRef.current) {
+          console.error('Canvas ref was lost after initialization delay');
           return;
         }
 
-        const canvas = canvasRef.current;
+        const canvas = internalCanvasRef.current;
         canvas.width = canvas.offsetWidth || 800;
         canvas.height = canvas.offsetHeight || 600;
 
@@ -30,6 +52,7 @@ export const useCanvas = (isSelecting, pdfDoc, page, onSelectionComplete) => {
           fabricCanvasRef.current = null;
         }
 
+        console.log('useCanvas: Creating Fabric.js canvas instance', { width: canvas.width, height: canvas.height });
         fabricCanvasRef.current = new fabric.Canvas(canvas, {
           interactive: true,
           width: canvas.width,
@@ -49,29 +72,31 @@ export const useCanvas = (isSelecting, pdfDoc, page, onSelectionComplete) => {
           wrapper.style.visibility = 'hidden';
         }
 
+        console.log('useCanvas: Canvas initialization complete, setting isCanvasReady to true');
         setIsCanvasReady(true);
+        isCanvasReadyRef.current = true; // Keep ref in sync
       } catch (error) {
         console.error('Error during canvas initialization:', error);
       }
-    }, 50);
+    }, 100);
 
     return () => {
       clearTimeout(timer);
     };
-  }, [isCanvasReady]);
+  }, [canvasElement, isCanvasReady]);
 
   useEffect(() => {
     if (!fabricCanvasRef.current || !isCanvasReady) return;
 
     if (isSelecting) {
       fabricCanvasRef.current.set('cursor', 'crosshair');
-      if (canvasRef.current) {
-        canvasRef.current.style.cursor = 'crosshair';
+      if (internalCanvasRef.current) {
+        internalCanvasRef.current.style.cursor = 'crosshair';
       }
     } else {
       fabricCanvasRef.current.set('cursor', 'default');
-      if (canvasRef.current) {
-        canvasRef.current.style.cursor = 'default';
+      if (internalCanvasRef.current) {
+        internalCanvasRef.current.style.cursor = 'default';
       }
     }
   }, [isSelecting, isCanvasReady]);
@@ -217,19 +242,98 @@ export const useCanvas = (isSelecting, pdfDoc, page, onSelectionComplete) => {
   }, [params, renderParamsOnImage]);
 
   const handleCanvasReady = useCallback((rect) => {
-    if (fabricCanvasRef.current && isCanvasReady && canvasRef.current) {
-      const wrapper = canvasRef.current.closest('[data-canvas-section]');
+    console.log('useCanvas: handleCanvasReady called', {
+      hasFabricCanvas: !!fabricCanvasRef.current,
+      isCanvasReady: isCanvasReadyRef.current,
+      hasInternalRef: !!internalCanvasRef.current,
+      rect
+    });
+    
+    if (fabricCanvasRef.current && isCanvasReadyRef.current && internalCanvasRef.current) {
+      const wrapper = internalCanvasRef.current.closest('[data-canvas-section]');
+      
+      console.log('useCanvas: Setting canvas visibility', {
+        hasWrapper: !!wrapper,
+        hasUpperCanvas: !!fabricCanvasRef.current.upperCanvasEl,
+        hasLowerCanvas: !!fabricCanvasRef.current.lowerCanvasEl
+      });
       
       if (wrapper) {
-        wrapper.style.position = 'absolute';
-        wrapper.style.left = `${rect.left}px`;
-        wrapper.style.top = `${rect.top}px`;
-        wrapper.style.width = `${rect.width}px`;
-        wrapper.style.height = `${rect.height}px`;
-        wrapper.style.zIndex = '1000';
-        wrapper.style.visibility = 'visible'; 
+        // Check if rect has new structure (container + image) or old structure (direct position)
+        const hasNewStructure = rect.container && rect.image;
         
-        const fabricWrapper = canvasRef.current.parentElement;
+        if (hasNewStructure) {
+          // New structure: Position wrapper at final image position (container + image offset)
+          const finalLeft = rect.container.left + rect.image.left;
+          const finalTop = rect.container.top + rect.image.top;
+          
+          wrapper.style.position = 'absolute';
+          wrapper.style.left = `${finalLeft}px`;
+          wrapper.style.top = `${finalTop}px`;
+          wrapper.style.width = `${rect.image.width}px`;
+          wrapper.style.height = `${rect.image.height}px`;
+          wrapper.style.zIndex = '1000';
+          wrapper.style.visibility = 'visible';
+          
+          console.log('useCanvas: Applied wrapper styles (combined position)', {
+            position: 'absolute',
+            left: `${finalLeft}px`,
+            top: `${finalTop}px`,
+            containerLeft: rect.container.left,
+            containerTop: rect.container.top,
+            imageOffsetLeft: rect.image.left,
+            imageOffsetTop: rect.image.top,
+            width: `${rect.image.width}px`,
+            height: `${rect.image.height}px`
+          });
+          
+          // Canvas element: no positioning, just dimensions
+          // Let Fabric.js handle its internal canvas layers
+          internalCanvasRef.current.style.position = '';
+          internalCanvasRef.current.style.left = '';
+          internalCanvasRef.current.style.top = '';
+          internalCanvasRef.current.width = rect.image.width;
+          internalCanvasRef.current.height = rect.image.height;
+          internalCanvasRef.current.style.visibility = 'visible';
+          
+          fabricCanvasRef.current.setDimensions({
+            width: rect.image.width,
+            height: rect.image.height,
+          });
+          
+          console.log('useCanvas: Canvas element dimensions set (no positioning)', {
+            width: `${rect.image.width}px`,
+            height: `${rect.image.height}px`
+          });
+        } else {
+          // Old structure: direct positioning (fallback for other calls)
+          wrapper.style.position = 'absolute';
+          wrapper.style.left = `${rect.left}px`;
+          wrapper.style.top = `${rect.top}px`;
+          wrapper.style.width = `${rect.width}px`;
+          wrapper.style.height = `${rect.height}px`;
+          wrapper.style.zIndex = '1000';
+          wrapper.style.visibility = 'visible';
+          
+          console.log('useCanvas: Applied wrapper styles (old structure)', {
+            position: 'absolute',
+            left: `${rect.left}px`,
+            top: `${rect.top}px`,
+            width: `${rect.width}px`,
+            height: `${rect.height}px`
+          });
+          
+          internalCanvasRef.current.width = rect.width;
+          internalCanvasRef.current.height = rect.height;
+          internalCanvasRef.current.style.visibility = 'visible';
+          
+          fabricCanvasRef.current.setDimensions({
+            width: rect.width,
+            height: rect.height,
+          });
+        }
+        
+        const fabricWrapper = internalCanvasRef.current.parentElement;
         if (fabricWrapper && fabricWrapper.classList.contains('canvas-container')) {
           fabricWrapper.style.position = 'static';
           fabricWrapper.style.left = 'auto';
@@ -237,41 +341,38 @@ export const useCanvas = (isSelecting, pdfDoc, page, onSelectionComplete) => {
           fabricWrapper.style.width = '100%';
           fabricWrapper.style.height = '100%';
         }
+        
+        if (fabricCanvasRef.current.upperCanvasEl && fabricCanvasRef.current.lowerCanvasEl) {
+          fabricCanvasRef.current.upperCanvasEl.style.position = 'absolute';
+          fabricCanvasRef.current.upperCanvasEl.style.left = '0';
+          fabricCanvasRef.current.upperCanvasEl.style.top = '0';
+          fabricCanvasRef.current.upperCanvasEl.style.visibility = 'visible';
+          fabricCanvasRef.current.lowerCanvasEl.style.position = 'absolute';
+          fabricCanvasRef.current.lowerCanvasEl.style.left = '0';
+          fabricCanvasRef.current.lowerCanvasEl.style.top = '0';
+          fabricCanvasRef.current.lowerCanvasEl.style.visibility = 'visible';
+        }
       }
       
-      canvasRef.current.width = rect.width;
-      canvasRef.current.height = rect.height;
-      
-      canvasRef.current.style.visibility = 'visible';
-      
-      fabricCanvasRef.current.setDimensions({
-        width: rect.width,
-        height: rect.height,
-      });
-      
-      if (fabricCanvasRef.current.upperCanvasEl && fabricCanvasRef.current.lowerCanvasEl) {
-        fabricCanvasRef.current.upperCanvasEl.style.position = 'absolute';
-        fabricCanvasRef.current.upperCanvasEl.style.left = '0';
-        fabricCanvasRef.current.upperCanvasEl.style.top = '0';
-        fabricCanvasRef.current.upperCanvasEl.style.visibility = 'visible';
-        fabricCanvasRef.current.lowerCanvasEl.style.position = 'absolute';
-        fabricCanvasRef.current.lowerCanvasEl.style.left = '0';
-        fabricCanvasRef.current.lowerCanvasEl.style.top = '0';
-        fabricCanvasRef.current.lowerCanvasEl.style.visibility = 'visible';
-      }
-      
+      console.log('useCanvas: Canvas visibility set to visible');
       renderParamsOnImage(params);
+    } else {
+      console.warn('useCanvas: handleCanvasReady conditions not met', {
+        hasFabricCanvas: !!fabricCanvasRef.current,
+        isCanvasReady: isCanvasReadyRef.current,
+        hasInternalRef: !!internalCanvasRef.current
+      });
     }
-  }, [params, isCanvasReady, renderParamsOnImage]);
+  }, [params, renderParamsOnImage]);
 
   const hideCanvas = useCallback(() => {
-    const wrapper = canvasRef.current?.closest('[data-canvas-section]');
+    const wrapper = internalCanvasRef.current?.closest('[data-canvas-section]');
     if (wrapper) {
       wrapper.style.visibility = 'hidden';
     }
     
-    if (canvasRef.current) {
-      canvasRef.current.style.visibility = 'hidden';
+    if (internalCanvasRef.current) {
+      internalCanvasRef.current.style.visibility = 'hidden';
     }
     if (fabricCanvasRef.current?.upperCanvasEl) {
       fabricCanvasRef.current.upperCanvasEl.style.visibility = 'hidden';
@@ -282,13 +383,13 @@ export const useCanvas = (isSelecting, pdfDoc, page, onSelectionComplete) => {
   }, []);
 
   return {
-    canvasRef,
+    canvasRef: canvasRef, // Return callback ref instead of regular ref
     fabricCanvasRef,
     params,
     setParams,
     renderParamsOnImage,
     handleCanvasReady,
     hideCanvas,
-    isCanvasReady, 
+    isCanvasReadyRef, // Return the ref itself so consumers can check .current
   };
 };
