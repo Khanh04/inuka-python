@@ -21,6 +21,7 @@ function InvoiceSelection() {
     exportFileByID,
     getDocumentForTenantByFileID,
     getFormForTenantByTemplateID,
+    uploadDocumentToFile,
     createNewFile,
     xmlFile,
   } = useTenantApiStore();
@@ -39,6 +40,7 @@ function InvoiceSelection() {
   const [createFileDialogOpen, setCreateFileDialogOpen] = useState(false);
 
   const canvasHandlersRef = useRef({});
+  const pdfInputRef = useRef(null);
 
   useEffect(() => {
     pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.54/pdf.worker.min.mjs';
@@ -53,8 +55,8 @@ function InvoiceSelection() {
   }, [loadValue]);
 
   useEffect(() => {
-    getAllTemplatesForTenant(1);
-    getAllFilesForTenant(1);
+    getAllTemplatesForTenant();
+    getAllFilesForTenant();
   }, [getAllTemplatesForTenant, getAllFilesForTenant]);
 
   useEffect(() => {
@@ -80,7 +82,8 @@ function InvoiceSelection() {
       const viewers = forms.map(form => {
         const viewer = {
           id: form.id,
-          name: form.description,
+          name: form.name,
+          description: form.description,
           pdfDoc: null,
           page: 1,
           totalPages: 1,
@@ -195,6 +198,74 @@ function InvoiceSelection() {
     });
   }
 
+  const handlePdfUpload = async (event, selectForms) => {
+    const file = event.target.files[0];
+    if (file && file.type === 'application/pdf') {
+      try {
+        const arrayBuffer = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = (error) => reject(error);
+          reader.readAsArrayBuffer(file);
+        });
+
+        const loadPromise = pdfjs.getDocument({ data: arrayBuffer }).promise;
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('PDF loading timed out')), 30000)
+        );
+        const pdf = await Promise.race([loadPromise, timeoutPromise]);
+
+        const totalPages = pdf.numPages;
+        const formData = new FormData(); 
+
+        formData.append('page_count', String(totalPages));
+        const pagesArray = [];
+
+        for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+
+          const viewport = page.getViewport({ scale: 1.0 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+
+          await page.render({
+            canvasContext: context,
+            viewport: viewport,
+          }).promise;
+
+          const pngDataUrl = canvas.toDataURL('image/png');
+
+          const blob = await (await fetch(pngDataUrl)).blob();
+
+          const pngFile = new File([blob], `page-${pageNum}.png`, { type: 'image/png' });
+          pagesArray.push(pngFile);
+          formData.append(`${pageNum}`, pngFile, `page-${pageNum}.png`);
+        }
+
+        console.log('FormData before upload:', pagesArray);
+        console.log('FormData entries:');
+        let hasEntries = false;
+        for (const [key, value] of formData.entries()) {
+          console.log(key, value);
+          hasEntries = true;
+        }
+
+        if (hasEntries) {
+          await uploadDocumentToFile(formData, selectedFiles, selectForms);
+          await getAllFilesForTenant(1);
+        } else {
+          throw new Error('FormData is empty');
+        }
+
+      } catch (error) {
+        console.error('Error loading PDF:', error);
+        alert('Failed to load PDF: ' + error.message);
+      }
+    }
+  };
+
   const ExportFile = () => {
     exportFileByID(1, selectedFiles);
   }
@@ -218,7 +289,7 @@ function InvoiceSelection() {
         <Typography variant="h4" className="text-2xl font-bold text-gray-800 mb-6">
           Invoice Details
         </Typography>
-        <Box className="flex flex-row justify-normal">
+        <Box className="flex flex-row justify-normal mb-6">
           <Box className='mr-5'>
             <Button variant="contained" color="primary" onClick={() => navigate('/editor')}>
               Go to Upload Form
@@ -229,9 +300,8 @@ function InvoiceSelection() {
               Create new File
             </Button>
           </Box>
-
         </Box>
-        <Box className="flex flex-row justify-normal">
+        <Box className="flex flex-row justify-normal mb-6">
           {
             Boolean(templateOptionsList?.length) &&
             <Box className='mr-5'>
@@ -281,7 +351,7 @@ function InvoiceSelection() {
           }
 
         </Box >
-        <Box className="flex flex-row justify-normal">
+        <Box className="flex flex-row justify-normal mb-6">
           {
             selectedFiles && <Button variant="contained" color="secondary" onClick={ExportFile}>
               Export PDF
@@ -294,11 +364,10 @@ function InvoiceSelection() {
 
             <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
               <Typography variant="h6">{viewer.name}</Typography>
-              <Button variant="outlined" size="small" onClick={() => {
-
-              }}>
-                Import Image
+              <Button variant="outlined" size="small" onClick={() => pdfInputRef.current.click()}>
+                Import PDF
               </Button>
+              <input type="file" accept="application/pdf" ref={pdfInputRef} style={{ display: 'none' }} onChange={(e) => handlePdfUpload(e, viewer.id)} />
 
             </Box>
             <Box sx={{ display: 'flex', gap: 2, maxWidth: 1400, width: '100%', position: 'relative' }} data-section={viewer.id}>
@@ -319,14 +388,12 @@ function InvoiceSelection() {
                     };
                     setFormViewers(prev => prev.map(v => v.id === viewer.id ? updatedViewer : v));
                     
-                    // Wait for image to load, then update canvas handler
                     setTimeout(() => {
                       const handler = canvasHandlersRef.current[viewer.id];
                       if (handler) {
                         handler.setParams(params);
                         handler.renderParamsOnImage(params);
                         
-                        // Reposition canvas after page change
                         const sectionContainer = document.querySelector(`[data-section="${viewer.id}"]`);
                         const sectionImg = sectionContainer?.querySelector('img');
                         
@@ -348,7 +415,6 @@ function InvoiceSelection() {
                 }}
                 loading={false}
                 onCanvasReady={(viewportRect) => {
-                  // Position the canvas when the image is ready - retry until handler is fully initialized
                   const attemptPosition = (attempts = 0) => {
                     const currentHandler = canvasHandlersRef.current[viewer.id];
                     
@@ -356,7 +422,6 @@ function InvoiceSelection() {
                       console.log(`PdfViewer onCanvasReady positioning section ${viewer.id} (attempt ${attempts + 1})`);
                       currentHandler.handleCanvasReady(viewportRect);
                     } else if (attempts < 30) {
-                      // Retry for up to 3 seconds (30 * 100ms)
                       console.log(`PdfViewer onCanvasReady waiting for handler section ${viewer.id} (attempt ${attempts + 1}):`, {
                         hasHandler: !!currentHandler,
                         hasHandleCanvasReady: !!currentHandler?.handleCanvasReady,
@@ -376,14 +441,6 @@ function InvoiceSelection() {
                 section={viewer}
                 isSelecting
                 onParamSelected={() => { }}
-                // onCanvasHandlerReady={(handler) => {
-                //   canvasHandlersRef.current[viewer.id] = handler;
-                //   if (handler && handler.renderParamsOnImage) {
-                //     const params = viewer.pdfDoc ? (viewer.pdfPageParams[viewer.page] || []) : viewer.params;
-                //     handler.setParams(params);
-                //     handler.renderParamsOnImage(params);
-                //   }
-                // }}
                 onCanvasHandlerReady={handleCanvasHandlerReady(viewer.id)}
                 onlyView
               />

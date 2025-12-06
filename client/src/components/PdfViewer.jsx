@@ -20,7 +20,6 @@ const PdfViewer = ({
         const container = containerRef.current;
         if (!container) return;
 
-        // Get the section container (parent with data-section attribute)
         const sectionContainer = container.closest('[data-section]');
         if (!sectionContainer) return;
 
@@ -28,8 +27,6 @@ const PdfViewer = ({
         const containerRect = container.getBoundingClientRect();
         const sectionRect = sectionContainer.getBoundingClientRect();
         
-        // Position canvas wrapper to match the image container (orange border box)
-        // Then we'll position the actual canvas to match the image within
         const containerViewportRect = {
           left: containerRect.left - sectionRect.left,
           top: containerRect.top - sectionRect.top,
@@ -37,18 +34,12 @@ const PdfViewer = ({
           height: containerRect.height,
         };
         
-        // Image position within the container
         const imageOffset = {
           left: imgRect.left - containerRect.left,
           top: imgRect.top - containerRect.top,
           width: imgRect.width,
           height: imgRect.height,
         };
-        
-        console.log('PdfViewer positioning calculation:', {
-          containerPosition: containerViewportRect,
-          imageOffset: imageOffset
-        });
         
         onCanvasReady({ container: containerViewportRect, image: imageOffset });
       }
@@ -63,7 +54,7 @@ const PdfViewer = ({
     }
 
     window.addEventListener('resize', resizeCanvas);
-    window.addEventListener('scroll', resizeCanvas); // Handle scrolling
+    window.addEventListener('scroll', resizeCanvas); 
 
     return () => {
       if (img) {

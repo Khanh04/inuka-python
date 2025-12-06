@@ -6,22 +6,19 @@ export const useCanvas = (isSelecting, pdfDoc, page, onSelectionComplete) => {
   const fabricCanvasRef = useRef(null);
   const [params, setParams] = useState([]);
   const [isCanvasReady, setIsCanvasReady] = useState(false);
-  const isCanvasReadyRef = useRef(false); // Ref that always has the current isCanvasReady value
+  const isCanvasReadyRef = useRef(false); 
   const [canvasElement, setCanvasElement] = useState(null);
-  const isInitializedRef = useRef(false); // Track if we've already initialized
+  const isInitializedRef = useRef(false); 
 
-  // Callback ref to capture when canvas element is attached
   const canvasRef = useCallback((element) => {
-    console.log('useCanvas: canvasRef callback called', { element: !!element, internalRef: !!internalCanvasRef.current });
     internalCanvasRef.current = element;
     if (element && !isInitializedRef.current) {
-      console.log('useCanvas: Canvas element attached to DOM, triggering state update');
       isInitializedRef.current = true;
-      setCanvasElement(element); // This triggers re-render and effect below
+      setCanvasElement(element); 
     }
-  }, []); // Empty deps - this callback never changes
+  }, []);
 
-  // Initialize canvas when element becomes available - use useLayoutEffect for synchronous execution
+ 
   useLayoutEffect(() => {
     console.log('useCanvas: useLayoutEffect triggered', { 
       canvasElement: !!canvasElement, 
@@ -259,11 +256,9 @@ export const useCanvas = (isSelecting, pdfDoc, page, onSelectionComplete) => {
       });
       
       if (wrapper) {
-        // Check if rect has new structure (container + image) or old structure (direct position)
         const hasNewStructure = rect.container && rect.image;
         
         if (hasNewStructure) {
-          // New structure: Position wrapper at final image position (container + image offset)
           const finalLeft = rect.container.left + rect.image.left;
           const finalTop = rect.container.top + rect.image.top;
           
@@ -287,8 +282,6 @@ export const useCanvas = (isSelecting, pdfDoc, page, onSelectionComplete) => {
             height: `${rect.image.height}px`
           });
           
-          // Canvas element: no positioning, just dimensions
-          // Let Fabric.js handle its internal canvas layers
           internalCanvasRef.current.style.position = '';
           internalCanvasRef.current.style.left = '';
           internalCanvasRef.current.style.top = '';
@@ -306,7 +299,6 @@ export const useCanvas = (isSelecting, pdfDoc, page, onSelectionComplete) => {
             height: `${rect.image.height}px`
           });
         } else {
-          // Old structure: direct positioning (fallback for other calls)
           wrapper.style.position = 'absolute';
           wrapper.style.left = `${rect.left}px`;
           wrapper.style.top = `${rect.top}px`;

@@ -398,6 +398,58 @@ function TemplateEditor() {
     }
   };
 
+  const handleUpdateParam = (sectionId, pageNum, newParams) => {
+    setSections(prev => prev.map(s => {
+      if (s.id !== sectionId) return s;
+      if (pageNum) {
+        return { ...s, pdfPageParams: { ...s.pdfPageParams, [pageNum]: newParams } };
+      } else {
+        return { ...s, params: newParams };
+      }
+    }));
+  };
+
+  const handleDeleteParam = (sectionId, pageNum, index, section) => {
+    if (pageNum && Number(pageNum) !== section.page && globalThis.confirm(`Are you sure you want to delete parameter from page ${pageNum}?`)) {
+      const newParams = [...section.pdfPageParams[pageNum]];
+      newParams.splice(index, 1);
+      setSections(prev => prev.map(s =>
+        s.id === sectionId
+          ? { ...s, pdfPageParams: { ...s.pdfPageParams, [pageNum]: newParams } }
+          : s
+      ));
+    } else {
+      if (section.pdfDoc) {
+        const newParams = [...(section.pdfPageParams[section.page] || [])];
+        newParams.splice(index, 1);
+        setSections(prev => prev.map(s =>
+          s.id === sectionId
+            ? { ...s, pdfPageParams: { ...s.pdfPageParams, [section.page]: newParams } }
+            : s
+        ));
+      } else {
+        const newParams = [...section.params];
+        newParams.splice(index, 1);
+        setSections(prev => prev.map(s =>
+          s.id === sectionId
+            ? { ...s, params: newParams }
+            : s
+        ));
+      }
+    }
+  };
+
+  const handleRenderParamsOnImage = (section) => {
+    const canvasHandler = canvasHandlersRef.current[section.id];
+    if (canvasHandler?.renderParamsOnImage) {
+      const params = section.pdfDoc
+        ? (section.pdfPageParams[section.page] || [])
+        : section.params;
+      canvasHandler.setParams(params);
+      canvasHandler.renderParamsOnImage(params);
+    }
+  };
+
   const renderParamsTable = (section) => {
     return (
       <ParametersTable
@@ -405,54 +457,9 @@ function TemplateEditor() {
         pdfPageParams={section.pdfPageParams}
         params={section.params}
         page={section.page}
-        onUpdateParam={(pageNum, newParams) => {
-          setSections(prev => prev.map(s =>
-            s.id === section.id
-              ? pageNum
-                ? { ...s, pdfPageParams: { ...s.pdfPageParams, [pageNum]: newParams } }
-                : { ...s, params: newParams }
-              : s
-          ));
-        }}
-        onDeleteParam={(pageNum, index) => {
-          if (pageNum && Number(pageNum) !== section.page && globalThis.confirm(`Are you sure you want to delete parameter from page ${pageNum}?`)) {
-            const newParams = [...section.pdfPageParams[pageNum]];
-            newParams.splice(index, 1);
-            setSections(prev => prev.map(s =>
-              s.id === section.id
-                ? { ...s, pdfPageParams: { ...s.pdfPageParams, [pageNum]: newParams } }
-                : s
-            ));
-          } else {
-            if (section.pdfDoc) {
-              const newParams = [...(section.pdfPageParams[section.page] || [])];
-              newParams.splice(index, 1);
-              setSections(prev => prev.map(s =>
-                s.id === section.id
-                  ? { ...s, pdfPageParams: { ...s.pdfPageParams, [section.page]: newParams } }
-                  : s
-              ));
-            } else {
-              const newParams = [...section.params];
-              newParams.splice(index, 1);
-              setSections(prev => prev.map(s =>
-                s.id === section.id
-                  ? { ...s, params: newParams }
-                  : s
-              ));
-            }
-          }
-        }}
-        renderParamsOnImage={() => {
-          const canvasHandler = canvasHandlersRef.current[section.id];
-          if (canvasHandler && canvasHandler.renderParamsOnImage) {
-            const params = section.pdfDoc 
-              ? (section.pdfPageParams[section.page] || [])
-              : section.params;
-            canvasHandler.setParams(params);
-            canvasHandler.renderParamsOnImage(params);
-          }
-        }}
+        onUpdateParam={(pageNum, newParams) => handleUpdateParam(section.id, pageNum, newParams)}
+        onDeleteParam={(pageNum, index) => handleDeleteParam(section.id, pageNum, index, section)}
+        renderParamsOnImage={() => handleRenderParamsOnImage(section)}
       />
     );
   };
