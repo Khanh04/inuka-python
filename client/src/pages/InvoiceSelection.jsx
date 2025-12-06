@@ -8,6 +8,8 @@ import { useTenantApiStore } from '../store/apiStore';
 import { useNavigate } from 'react-router-dom';
 import PdfViewer from '../components/PdfViewer';
 import SectionCanvas from '../components/SectionCanvas';
+import { FORM_TYPES } from '../consts/FORM_TYPES';
+import SelectDropdown from '../components/SelectDropdown';
 
 function InvoiceSelection() {
   const navigate = useNavigate();
@@ -216,7 +218,7 @@ function InvoiceSelection() {
         const pdf = await Promise.race([loadPromise, timeoutPromise]);
 
         const totalPages = pdf.numPages;
-        const formData = new FormData(); 
+        const formData = new FormData();
 
         formData.append('page_count', String(totalPages));
         const pagesArray = [];
@@ -341,6 +343,7 @@ function InvoiceSelection() {
                   style={{
                     width: 200
                   }}
+
                 >
                   {filesOptionsList.map(({ text, value }) => (
                     <MenuItem key={value} value={value}>{text}</MenuItem>
@@ -365,6 +368,15 @@ function InvoiceSelection() {
 
             <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
               <Typography variant="h6">{viewer.name}</Typography>
+              <SelectDropdown
+                label="Form Type"
+                value={viewer.formType || 'customs_export'}
+                options={FORM_TYPES}
+                size="small"
+                variant="standard"
+                disabled
+                sx={{ mr: 2, minWidth: 150 }}
+              />
               <Button variant="outlined" size="small" onClick={() => pdfInputRef.current.click()}>
                 Import PDF
               </Button>
@@ -388,20 +400,20 @@ function InvoiceSelection() {
                       params
                     };
                     setFormViewers(prev => prev.map(v => v.id === viewer.id ? updatedViewer : v));
-                    
+
                     setTimeout(() => {
                       const handler = canvasHandlersRef.current[viewer.id];
                       if (handler) {
                         handler.setParams(params);
                         handler.renderParamsOnImage(params);
-                        
+
                         const sectionContainer = document.querySelector(`[data-section="${viewer.id}"]`);
                         const sectionImg = sectionContainer?.querySelector('img');
-                        
+
                         if (sectionImg && sectionImg.complete && sectionImg.naturalWidth > 0 && handler.handleCanvasReady && handler.isCanvasReady && handler.fabricCanvasRef?.current) {
                           const imgRect = sectionImg.getBoundingClientRect();
                           const sectionRect = sectionContainer.getBoundingClientRect();
-                          
+
                           const viewportRect = {
                             left: imgRect.left - sectionRect.left,
                             top: imgRect.top - sectionRect.top,
@@ -418,7 +430,7 @@ function InvoiceSelection() {
                 onCanvasReady={(viewportRect) => {
                   const attemptPosition = (attempts = 0) => {
                     const currentHandler = canvasHandlersRef.current[viewer.id];
-                    
+
                     if (currentHandler && currentHandler.handleCanvasReady && currentHandler.isCanvasReadyRef?.current && currentHandler.fabricCanvasRef?.current) {
                       console.log(`PdfViewer onCanvasReady positioning section ${viewer.id} (attempt ${attempts + 1})`);
                       currentHandler.handleCanvasReady(viewportRect);
@@ -434,7 +446,7 @@ function InvoiceSelection() {
                       console.error(`PdfViewer onCanvasReady gave up for section ${viewer.id} after ${attempts} attempts`);
                     }
                   };
-                  
+
                   attemptPosition();
                 }}
               />
