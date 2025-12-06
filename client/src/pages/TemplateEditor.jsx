@@ -160,7 +160,8 @@ function TemplateEditor() {
     ));
   };
 
-  const updateSectionFormType = (sectionId, newFormType) => {
+  const updateSectionFormType = (sectionId, newFormTypeEvent) => {
+    const newFormType = newFormTypeEvent.target.value;
     setSections(prev => prev.map(section =>
       section.id === sectionId ? { ...section, formType: newFormType } : section
     ));
@@ -300,7 +301,7 @@ function TemplateEditor() {
 
       const payload = {
         name: section.name,
-        formType: 'customs_export',
+        formType: section.formType || 'customs_export',
         description: `Template created on ${new Date().toLocaleDateString()}`,
         template: {
           source: section.pdfDoc
