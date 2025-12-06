@@ -10,6 +10,7 @@ export const useTenantApiStore = create((set) => ({
   loading: false,
   error: null,
   xmlFile: null,
+  document: null,
   getAllTemplatesForTenant: async () => {
     set({ loading: true, error: null });
     try {

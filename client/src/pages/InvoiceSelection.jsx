@@ -26,6 +26,7 @@ function InvoiceSelection() {
     uploadDocumentToFile,
     createNewFile,
     xmlFile,
+    document,
   } = useTenantApiStore();
 
   const [loading, setLoading] = useState({ open: false, text: '', progress: 0 });
@@ -62,7 +63,7 @@ function InvoiceSelection() {
   }, [getAllTemplatesForTenant, getAllFilesForTenant]);
 
   useEffect(() => {
-    if (selectedFiles) getDocumentForTenantByFileID(1, selectedFiles);
+    if (selectedFiles) getDocumentForTenantByFileID(selectedFiles);
   }, [selectedFiles, getDocumentForTenantByFileID]);
 
   useEffect(() => {
@@ -143,12 +144,11 @@ function InvoiceSelection() {
   useEffect(() => {
     if (files?.length) {
       const returnOptionsList = files.map(obj => {
-        const { id, name, template_id, user_id } = obj;
+        const { id, name, template_id } = obj;
         return {
           text: name,
           value: id,
           templateId: template_id,
-          userId: user_id
         }
       })
       setFilesOptionsList([...returnOptionsList]);
@@ -256,7 +256,8 @@ function InvoiceSelection() {
 
         if (hasEntries) {
           await uploadDocumentToFile(formData, selectedFiles, selectForms);
-          await getAllFilesForTenant(1);
+          await getAllFilesForTenant();
+          await getDocumentForTenantByFileID(selectedFiles);
         } else {
           throw new Error('FormData is empty');
         }
@@ -269,7 +270,7 @@ function InvoiceSelection() {
   };
 
   const ExportFile = () => {
-    exportFileByID(1, selectedFiles);
+    exportFileByID(selectedFiles);
   }
 
   const CreateNewFile = () => {
@@ -357,9 +358,9 @@ function InvoiceSelection() {
         </Box >
         <Box className="flex flex-row justify-normal mb-6">
           {
-            selectedFiles && <Button variant="contained" color="secondary" onClick={ExportFile}>
+            selectedFiles && document?.length ? <Button variant="contained" color="secondary" onClick={ExportFile}>
               Export XML
-            </Button>
+            </Button> : null
           }
         </Box>
 
