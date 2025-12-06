@@ -266,10 +266,8 @@ function TemplateEditor() {
     setLoading({ open: true, text: 'Processing template...', progress: 0 });
     
     if (isUpload && section) {
-      // Collect all page data for PDF uploads
       const allPagesData = [];
       if (section.pdfDoc) {
-        // Render all pages with parameters
         const totalPages = section.totalPages;
 
         for (let i = 1; i <= totalPages; i++) {
@@ -285,7 +283,6 @@ function TemplateEditor() {
           }
         }
       } else {
-        // Single image
         allPagesData.push({
           page: 1,
           binary: section.imageSrc.split(',')[1] || '',
