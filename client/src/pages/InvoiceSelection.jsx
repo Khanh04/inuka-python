@@ -277,6 +277,7 @@ function InvoiceSelection() {
       user_id: newFile.userId
     }
     createNewFile(formFile, 1);
+    getAllFilesForTenant();
   }
 
   const handleCanvasHandlerReady = (sectionId) => (handler) => {
@@ -354,7 +355,7 @@ function InvoiceSelection() {
         <Box className="flex flex-row justify-normal mb-6">
           {
             selectedFiles && <Button variant="contained" color="secondary" onClick={ExportFile}>
-              Export PDF
+              Export XML
             </Button>
           }
         </Box>
