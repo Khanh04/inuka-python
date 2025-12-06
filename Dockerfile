@@ -19,7 +19,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Frontend build stage
-FROM node:18-slim AS frontend-builder
+FROM node:20-slim AS frontend-builder
 
 WORKDIR /app/client
 
