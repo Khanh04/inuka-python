@@ -1,13 +1,11 @@
 const baseUrl = import.meta.env.VITE_API_URL || '';
 const token = 1111;
 
-// Common headers function
 const getHeaders = (contentType = 'application/json') => ({
   'Content-Type': contentType,
   ...(token && { Authorization: `Bearer ${token}` }),
 });
 
-// Common fetch wrapper
 const apiRequest = async (url, options = {}) => {
   const response = await fetch(`${baseUrl}${url}`, {
     headers: getHeaders(),

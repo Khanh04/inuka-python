@@ -1,13 +1,11 @@
 const baseUrl = import.meta.env.VITE_API_URL || '';
 const token = 1111;
 
-// Common headers function
 const getHeaders = (contentType = 'application/json') => ({
   'Content-Type': contentType,
   ...(token && { Authorization: `Bearer ${token}` }),
 });
 
-// Common fetch wrapper
 const apiRequest = async (url, options = {}) => {
   const response = await fetch(`${baseUrl}${url}`, {
     headers: getHeaders(),
@@ -26,7 +24,7 @@ export const templatesApi = {
 
   getTemplateForTenantByTemplateID: async (templateID) => {
     const data = await apiRequest(`/api/templates/${templateID}`);
-    return [data]; // Store as array for consistency
+    return [data]; 
   },
 
   createTemplate: async (template) => {

@@ -17,18 +17,31 @@ const PdfViewer = ({
     const resizeCanvas = () => {
       if (imageRef.current && onCanvasReady) {
         const img = imageRef.current;
-        if (!containerRef.current) return;
+        const container = containerRef.current;
+        if (!container) return;
 
-        const rect = img.getBoundingClientRect();
+        const sectionContainer = container.closest('[data-section]');
+        if (!sectionContainer) return;
+
+        const imgRect = img.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const sectionRect = sectionContainer.getBoundingClientRect();
         
-        const viewportRect = {
-          left: rect.left,
-          top: rect.top,
-          width: rect.width,
-          height: rect.height,
+        const containerViewportRect = {
+          left: containerRect.left - sectionRect.left,
+          top: containerRect.top - sectionRect.top,
+          width: containerRect.width,
+          height: containerRect.height,
         };
         
-        onCanvasReady(viewportRect);
+        const imageOffset = {
+          left: imgRect.left - containerRect.left,
+          top: imgRect.top - containerRect.top,
+          width: imgRect.width,
+          height: imgRect.height,
+        };
+        
+        onCanvasReady({ container: containerViewportRect, image: imageOffset });
       }
     };
 
@@ -41,7 +54,7 @@ const PdfViewer = ({
     }
 
     window.addEventListener('resize', resizeCanvas);
-    window.addEventListener('scroll', resizeCanvas); // Handle scrolling
+    window.addEventListener('scroll', resizeCanvas); 
 
     return () => {
       if (img) {

@@ -5,7 +5,8 @@ const SectionCanvas = ({
   section, 
   isSelecting, 
   onParamSelected,
-  onCanvasHandlerReady 
+  onCanvasHandlerReady, 
+  onlyView = false, 
 }) => {
   const canvasHandler = useCanvas(
     isSelecting, 
@@ -25,11 +26,57 @@ const SectionCanvas = ({
 
   useEffect(() => {
     const handler = canvasHandlerRef.current;
-    if (handler && handler.canvasRef.current && !hasInitialized.current) {
+    
+    if (handler && !hasInitialized.current) {
       onCanvasHandlerReady(handler);
       hasInitialized.current = true;
+      
+      if (onlyView) {
+        let readyAttempts = 0;
+        const checkCanvasReady = () => {
+          readyAttempts++;
+          
+          if (handler?.isCanvasReadyRef?.current && handler?.fabricCanvasRef?.current) {
+            setTimeout(() => {
+              const sectionContainer = document.querySelector(`[data-section="${section.id}"]`);
+              const sectionImg = sectionContainer?.querySelector('img');
+              const imgContainer = sectionImg?.parentElement; 
+              
+              if (sectionImg && sectionContainer && imgContainer && handler?.handleCanvasReady) {
+                if (sectionImg.complete && sectionImg.naturalWidth > 0) {
+                  const imgRect = sectionImg.getBoundingClientRect();
+                  const containerRect = imgContainer.getBoundingClientRect();
+                  const sectionRect = sectionContainer.getBoundingClientRect();
+                  
+                  const containerPosition = {
+                    left: containerRect.left - sectionRect.left,
+                    top: containerRect.top - sectionRect.top,
+                    width: containerRect.width,
+                    height: containerRect.height,
+                  };
+                  
+                  const imageOffset = {
+                    left: imgRect.left - containerRect.left,
+                    top: imgRect.top - containerRect.top,
+                    width: imgRect.width,
+                    height: imgRect.height,
+                  };
+                  
+                  handler.handleCanvasReady({ container: containerPosition, image: imageOffset });
+                }
+              }
+            }, 100);
+          } else if (readyAttempts < 20) {
+            setTimeout(checkCanvasReady, 50);
+          } else {
+            console.warn(`Canvas handler not ready after 1 second for section ${section.id}`);
+          }
+        };
+        
+        setTimeout(checkCanvasReady, 100);
+      }
     }
-  }, [onCanvasHandlerReady]);
+  }, [onCanvasHandlerReady, onlyView, section.id]);
 
   useEffect(() => {
     const handler = canvasHandlerRef.current;
@@ -46,68 +93,126 @@ const SectionCanvas = ({
     const selectionChanged = previousIsSelecting.current !== isSelecting;
     previousIsSelecting.current = isSelecting;
 
-    if (isSelecting && selectionChanged) {
+    if (onlyView || (isSelecting && selectionChanged)) {
       let attempts = 0;
-      const maxAttempts = 50; // Max 1 second (50 * 20ms)
+      const maxAttempts = 150; 
       
       const tryPositionCanvas = () => {
         attempts++;
+        
+        if (!handler?.isCanvasReadyRef?.current || !handler?.fabricCanvasRef?.current) {
+          if (attempts < maxAttempts) {
+            setTimeout(tryPositionCanvas, 20);
+          } else {
+            console.error(`Canvas handler not ready for section ${section.id} after ${maxAttempts * 20}ms`);
+          }
+          return;
+        }
+        
         const sectionContainer = document.querySelector(`[data-section="${section.id}"]`);
         const sectionImg = sectionContainer?.querySelector('img');
+        const imgContainer = sectionImg?.parentElement; 
         
-        if (sectionImg && sectionContainer && handler?.handleCanvasReady && handler?.isCanvasReady && handler?.fabricCanvasRef?.current) {
-          const imgRect = sectionImg.getBoundingClientRect();
-          const sectionRect = sectionContainer.getBoundingClientRect();
-          
-          const viewportRect = {
-            left: imgRect.left - sectionRect.left,
-            top: imgRect.top - sectionRect.top,
-            width: imgRect.width,
-            height: imgRect.height,
-          };
-          handler.handleCanvasReady(viewportRect);
-        } else if (attempts < maxAttempts) {
+        if (attempts === 1 || attempts === maxAttempts) {
+          console.log(`Section ${section.id} attempt ${attempts}:`, {
+            hasContainer: !!sectionContainer,
+            hasImgContainer: !!imgContainer,
+            hasImg: !!sectionImg,
+            imgComplete: sectionImg?.complete,
+            imgNaturalWidth: sectionImg?.naturalWidth,
+            hasHandler: !!handler,
+            hasHandleCanvasReady: !!handler?.handleCanvasReady,
+            isCanvasReady: handler?.isCanvasReadyRef?.current,
+            hasFabricCanvas: !!handler?.fabricCanvasRef?.current
+          });
+        }
+        
+        if (sectionImg && sectionContainer && imgContainer && handler?.handleCanvasReady) {
+          if (sectionImg.complete && sectionImg.naturalWidth > 0) {
+            const imgRect = sectionImg.getBoundingClientRect();
+            const containerRect = imgContainer.getBoundingClientRect();
+            const sectionRect = sectionContainer.getBoundingClientRect();
+            
+            const containerPosition = {
+              left: containerRect.left - sectionRect.left,
+              top: containerRect.top - sectionRect.top,
+              width: containerRect.width,
+              height: containerRect.height,
+            };
+            
+            const imageOffset = {
+              left: imgRect.left - containerRect.left,
+              top: imgRect.top - containerRect.top,
+              width: imgRect.width,
+              height: imgRect.height,
+            };
+            
+            handler.handleCanvasReady({ container: containerPosition, image: imageOffset });
+            return; 
+          }
+        }
+        
+        if (attempts < maxAttempts) {
           setTimeout(tryPositionCanvas, 20);
         } else {
-          console.error('Canvas failed to initialize after', maxAttempts * 20, 'ms');
+          console.error(`Canvas failed to initialize for section ${section.id} after ${maxAttempts * 20}ms`);
+          console.error('Final state:', {
+            sectionContainer: !!sectionContainer,
+            sectionImg: !!sectionImg,
+            imgSrc: section.imageSrc,
+            imgComplete: sectionImg?.complete,
+            imgNaturalWidth: sectionImg?.naturalWidth,
+            handler: !!handler,
+            isCanvasReady: handler?.isCanvasReadyRef?.current,
+            hasFabricCanvas: !!handler?.fabricCanvasRef?.current
+          });
         }
       };
       
-      setTimeout(tryPositionCanvas, 10);
+      setTimeout(tryPositionCanvas, 50);
     } else if (!isSelecting && selectionChanged && handler?.hideCanvas) {
       handler.hideCanvas();
     }
-  }, [isSelecting, section.id]);
+  }, [isSelecting, section.id, onlyView, section.imageSrc, section.page]);
 
   useEffect(() => {
-    if (!isSelecting) return;
+    if (!isSelecting && !onlyView) return;
 
     const handleScroll = () => {
       const handler = canvasHandlerRef.current;
       const sectionContainer = document.querySelector(`[data-section="${section.id}"]`);
       const sectionImg = sectionContainer?.querySelector('img');
+      const imgContainer = sectionImg?.parentElement; // The Box with orange border
       
-      if (sectionImg && sectionContainer && handler?.handleCanvasReady) {
+      if (sectionImg && sectionContainer && imgContainer && handler?.handleCanvasReady && handler?.isCanvasReadyRef?.current && handler?.fabricCanvasRef?.current) {
         const imgRect = sectionImg.getBoundingClientRect();
+        const containerRect = imgContainer.getBoundingClientRect();
         const sectionRect = sectionContainer.getBoundingClientRect();
         
-        const viewportRect = {
-          left: imgRect.left - sectionRect.left,
-          top: imgRect.top - sectionRect.top,
+        const containerPosition = {
+          left: containerRect.left - sectionRect.left,
+          top: containerRect.top - sectionRect.top,
+          width: containerRect.width,
+          height: containerRect.height,
+        };
+        
+        const imageOffset = {
+          left: imgRect.left - containerRect.left,
+          top: imgRect.top - containerRect.top,
           width: imgRect.width,
           height: imgRect.height,
         };
         
-        const wrapper = handler.canvasRef.current?.closest('[data-canvas-section]');
+        const wrapper = document.querySelector(`[data-canvas-section="${section.id}"]`);
         if (wrapper && wrapper.style.visibility !== 'hidden') {
-          handler.handleCanvasReady(viewportRect);
+          handler.handleCanvasReady({ container: containerPosition, image: imageOffset });
         }
       }
     };
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [isSelecting, section.id]);
+  }, [isSelecting, onlyView, section.id]);
 
   return (
     <div 

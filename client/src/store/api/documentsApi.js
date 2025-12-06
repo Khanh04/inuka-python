@@ -28,7 +28,7 @@ export const documentsApi = {
     };
 
     const response = await fetch(`${baseUrl}/api/files/${fileID}/documents/${formID}`, {
-      method: 'PUT',
+      method: 'POST',
       headers,
       body: document,
     });

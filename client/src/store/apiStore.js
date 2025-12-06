@@ -59,7 +59,7 @@ export const useTenantApiStore = create((set) => ({
     set({ loading: true, error: null });
     try {
       const data = await formsApi.getFormForTenantByTemplateID(templateID);
-      set({ form: data, loading: false });
+      set({ forms: data, loading: false });
     } catch (error) {
       set({ error: error.message, loading: false });
     }
@@ -76,7 +76,7 @@ export const useTenantApiStore = create((set) => ({
   uploadFormByTemplateID: async (formData, templateID) => {
     set({ loading: true, error: null, newTemplate: null });
     try {
-      const data = await formsApi.uploadFormByTemplateID(JSON.parse(formData), templateID);
+      const data = await formsApi.uploadFormByTemplateID(formData, templateID);
       set({ newTemplate: data, loading: false });
     } catch (error) {
       set({ error: error.message, loading: false });

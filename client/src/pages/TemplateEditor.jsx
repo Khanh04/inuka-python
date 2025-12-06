@@ -26,7 +26,6 @@ function TemplateEditor() {
   const {
     templates,
     getAllTemplatesForTenant,
-    getFormForTenantByTemplateID,
     uploadFormByTemplateID,
     createTemplate
   } = useTenantApiStore();
@@ -184,12 +183,6 @@ function TemplateEditor() {
   };
 
   useEffect(() => {
-    if (selectedTemplate) {
-      getFormForTenantByTemplateID(1, selectedTemplate);
-    }
-  }, [selectedTemplate, getFormForTenantByTemplateID]);
-
-  useEffect(() => {
     if (templates?.length) {
       const returnOptionsList = templates.map(obj => {
         const { id, name } = obj;
@@ -277,11 +270,10 @@ function TemplateEditor() {
       const allPagesData = [];
       if (section.pdfDoc) {
         // Render all pages with parameters
-        const pagesWithParams = Object.keys(section.pdfPageParams)
-          .map(Number)
-          .filter(pageNum => section.pdfPageParams[pageNum]?.length > 0);
+        const totalPages = section.totalPages;
 
-        for (const pageNum of pagesWithParams) {
+        for (let i = 1; i <= totalPages; i++) {
+          const pageNum = i;
           const pageImageSrc = await renderPdfPage(section.pdfDoc, pageNum);
           if (pageImageSrc) {
             allPagesData.push({
@@ -324,7 +316,6 @@ function TemplateEditor() {
       try {
         await uploadFormByTemplateID(JSON.stringify(payload), selectedTemplate);
         setLoading({ open: false, text: '', progress: 0 });
-        alert('Template uploaded successfully!');
       } catch (error) {
         setLoading({ open: false, text: '', progress: 0 });
         alert('Failed to upload template: ' + error.message);
@@ -407,6 +398,58 @@ function TemplateEditor() {
     }
   };
 
+  const handleUpdateParam = (sectionId, pageNum, newParams) => {
+    setSections(prev => prev.map(s => {
+      if (s.id !== sectionId) return s;
+      if (pageNum) {
+        return { ...s, pdfPageParams: { ...s.pdfPageParams, [pageNum]: newParams } };
+      } else {
+        return { ...s, params: newParams };
+      }
+    }));
+  };
+
+  const handleDeleteParam = (sectionId, pageNum, index, section) => {
+    if (pageNum && Number(pageNum) !== section.page && globalThis.confirm(`Are you sure you want to delete parameter from page ${pageNum}?`)) {
+      const newParams = [...section.pdfPageParams[pageNum]];
+      newParams.splice(index, 1);
+      setSections(prev => prev.map(s =>
+        s.id === sectionId
+          ? { ...s, pdfPageParams: { ...s.pdfPageParams, [pageNum]: newParams } }
+          : s
+      ));
+    } else {
+      if (section.pdfDoc) {
+        const newParams = [...(section.pdfPageParams[section.page] || [])];
+        newParams.splice(index, 1);
+        setSections(prev => prev.map(s =>
+          s.id === sectionId
+            ? { ...s, pdfPageParams: { ...s.pdfPageParams, [section.page]: newParams } }
+            : s
+        ));
+      } else {
+        const newParams = [...section.params];
+        newParams.splice(index, 1);
+        setSections(prev => prev.map(s =>
+          s.id === sectionId
+            ? { ...s, params: newParams }
+            : s
+        ));
+      }
+    }
+  };
+
+  const handleRenderParamsOnImage = (section) => {
+    const canvasHandler = canvasHandlersRef.current[section.id];
+    if (canvasHandler?.renderParamsOnImage) {
+      const params = section.pdfDoc
+        ? (section.pdfPageParams[section.page] || [])
+        : section.params;
+      canvasHandler.setParams(params);
+      canvasHandler.renderParamsOnImage(params);
+    }
+  };
+
   const renderParamsTable = (section) => {
     return (
       <ParametersTable
@@ -414,54 +457,9 @@ function TemplateEditor() {
         pdfPageParams={section.pdfPageParams}
         params={section.params}
         page={section.page}
-        onUpdateParam={(pageNum, newParams) => {
-          setSections(prev => prev.map(s =>
-            s.id === section.id
-              ? pageNum
-                ? { ...s, pdfPageParams: { ...s.pdfPageParams, [pageNum]: newParams } }
-                : { ...s, params: newParams }
-              : s
-          ));
-        }}
-        onDeleteParam={(pageNum, index) => {
-          if (pageNum && Number(pageNum) !== section.page && globalThis.confirm(`Are you sure you want to delete parameter from page ${pageNum}?`)) {
-            const newParams = [...section.pdfPageParams[pageNum]];
-            newParams.splice(index, 1);
-            setSections(prev => prev.map(s =>
-              s.id === section.id
-                ? { ...s, pdfPageParams: { ...s.pdfPageParams, [pageNum]: newParams } }
-                : s
-            ));
-          } else {
-            if (section.pdfDoc) {
-              const newParams = [...(section.pdfPageParams[section.page] || [])];
-              newParams.splice(index, 1);
-              setSections(prev => prev.map(s =>
-                s.id === section.id
-                  ? { ...s, pdfPageParams: { ...s.pdfPageParams, [section.page]: newParams } }
-                  : s
-              ));
-            } else {
-              const newParams = [...section.params];
-              newParams.splice(index, 1);
-              setSections(prev => prev.map(s =>
-                s.id === section.id
-                  ? { ...s, params: newParams }
-                  : s
-              ));
-            }
-          }
-        }}
-        renderParamsOnImage={() => {
-          const canvasHandler = canvasHandlersRef.current[section.id];
-          if (canvasHandler && canvasHandler.renderParamsOnImage) {
-            const params = section.pdfDoc 
-              ? (section.pdfPageParams[section.page] || [])
-              : section.params;
-            canvasHandler.setParams(params);
-            canvasHandler.renderParamsOnImage(params);
-          }
-        }}
+        onUpdateParam={(pageNum, newParams) => handleUpdateParam(section.id, pageNum, newParams)}
+        onDeleteParam={(pageNum, index) => handleDeleteParam(section.id, pageNum, index, section)}
+        renderParamsOnImage={() => handleRenderParamsOnImage(section)}
       />
     );
   };
