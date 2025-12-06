@@ -26,7 +26,7 @@ function InvoiceSelection() {
     uploadDocumentToFile,
     createNewFile,
     xmlFile,
-    document,
+    document: documentData,
   } = useTenantApiStore();
 
   const [loading, setLoading] = useState({ open: false, text: '', progress: 0 });
@@ -358,7 +358,7 @@ function InvoiceSelection() {
         </Box >
         <Box className="flex flex-row justify-normal mb-6">
           {
-            selectedFiles && document?.length ? <Button variant="contained" color="secondary" onClick={ExportFile}>
+            selectedFiles && documentData?.length ? <Button variant="contained" color="secondary" onClick={ExportFile}>
               Export XML
             </Button> : null
           }
