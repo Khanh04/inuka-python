@@ -16,6 +16,7 @@ import ParametersTable from '../components/ParametersTable';
 import PdfViewer from '../components/PdfViewer';
 import SectionCanvas from '../components/SectionCanvas';
 import * as pdfjsLib from 'pdfjs-dist';
+import { FORM_TYPES } from '../consts/FORM_TYPES';
 
 if (typeof globalThis.window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.54/pdf.worker.min.mjs';
@@ -49,8 +50,8 @@ function TemplateEditor() {
     totalPages: 1,
     pdfPageParams: {},
     params: [],
-    isSelecting: false 
-  }]); 
+    isSelecting: false
+  }]);
 
   const fileInputRef = useRef(null);
   const pdfInputRef = useRef(null);
@@ -63,10 +64,10 @@ function TemplateEditor() {
   }, [getAllTemplatesForTenant]);
 
   const toggleSelection = (sectionId) => {
-    setSections(prev => prev.map(s => 
-      s.id === sectionId 
+    setSections(prev => prev.map(s =>
+      s.id === sectionId
         ? { ...s, isSelecting: !s.isSelecting }
-        : { ...s, isSelecting: false } 
+        : { ...s, isSelecting: false }
     ));
   };
 
@@ -78,12 +79,12 @@ function TemplateEditor() {
       setSections(prev => prev.map(s =>
         s.id === sectionId
           ? {
-              ...s,
-              pdfPageParams: {
-                ...s.pdfPageParams,
-                [s.page]: [...(s.pdfPageParams[s.page] || []), newParam]
-              }
+            ...s,
+            pdfPageParams: {
+              ...s.pdfPageParams,
+              [s.page]: [...(s.pdfPageParams[s.page] || []), newParam]
             }
+          }
           : s
       ));
     } else {
@@ -154,14 +155,20 @@ function TemplateEditor() {
   };
 
   const updateSectionName = (sectionId, newName) => {
-    setSections(prev => prev.map(section => 
+    setSections(prev => prev.map(section =>
       section.id === sectionId ? { ...section, name: newName } : section
+    ));
+  };
+
+  const updateSectionFormType = (sectionId, newFormType) => {
+    setSections(prev => prev.map(section =>
+      section.id === sectionId ? { ...section, formType: newFormType } : section
     ));
   };
 
   const renderPdfPage = async (pdfDoc, pageNum) => {
     if (!pdfDoc || typeof document === 'undefined') return null;
-    
+
     try {
       const page = await pdfDoc.getPage(pageNum);
       const viewport = page.getViewport({ scale: 1.5 });
@@ -169,12 +176,12 @@ function TemplateEditor() {
       const context = canvas.getContext('2d');
       canvas.height = viewport.height;
       canvas.width = viewport.width;
-      
+
       await page.render({
         canvasContext: context,
         viewport: viewport
       }).promise;
-      
+
       return canvas.toDataURL('image/png');
     } catch (error) {
       console.error('Error rendering PDF page:', error);
@@ -216,33 +223,33 @@ function TemplateEditor() {
       try {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        
+
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: 1.5 });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
         canvas.height = viewport.height;
         canvas.width = viewport.width;
-        
+
         await page.render({
           canvasContext: context,
           viewport: viewport
         }).promise;
-        
+
         const imageSrc = canvas.toDataURL('image/png');
-        
+
         setSections(prev => prev.map(section =>
           section.id === sectionId
-            ? { 
-                ...section, 
-                imageSrc, 
-                pdfDoc: pdf, 
-                page: 1, 
-                totalPages: pdf.numPages, 
-                pdfPageParams: {}, 
-                params: [],
-                canvasHandler: null
-              }
+            ? {
+              ...section,
+              imageSrc,
+              pdfDoc: pdf,
+              page: 1,
+              totalPages: pdf.numPages,
+              pdfPageParams: {},
+              params: [],
+              canvasHandler: null
+            }
             : section
         ));
       } catch (error) {
@@ -254,7 +261,7 @@ function TemplateEditor() {
 
   const saveTemplate = async (isUpload, section = null) => {
     if (!section) return;
-    
+
     if (section.imageSrc === PLACEHOLDER_PATH || section.imageSrc === globalThis.location.href) {
       alert('Please import a template image or PDF first.');
       return;
@@ -264,7 +271,7 @@ function TemplateEditor() {
       return;
     }
     setLoading({ open: true, text: 'Processing template...', progress: 0 });
-    
+
     if (isUpload && section) {
       const allPagesData = [];
       if (section.pdfDoc) {
@@ -326,7 +333,7 @@ function TemplateEditor() {
         source: section.pdfDoc
           ? {
             type: 'pdf',
-            filename: 'uploaded.pdf', 
+            filename: 'uploaded.pdf',
             allPages: Object.keys(section.pdfPageParams).map(Number),
             totalPages: section.totalPages,
           }
@@ -336,23 +343,23 @@ function TemplateEditor() {
       params: section.pdfDoc ? [] : section.params,
       allPageParams: section.pdfDoc ? section.pdfPageParams : undefined,
     };
-    
+
     if (section.pdfDoc) {
       templateData.template.data = [{
         page: section.page,
         binary: section.imageSrc.split(',')[1] || '',
-        size: { width: 800, height: 1131 }, 
+        size: { width: 800, height: 1131 },
         type: 'image/png',
       }];
     } else {
       templateData.template.data = [{
         page: 1,
         binary: section.imageSrc.split(',')[1] || '',
-        size: { width: 800, height: 1131 }, 
+        size: { width: 800, height: 1131 },
         type: 'image/png',
       }];
     }
-    
+
     const jsonData = JSON.stringify(templateData, null, 4);
     const blob = new Blob([jsonData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -377,7 +384,7 @@ function TemplateEditor() {
   const clearAllParams = (sectionId) => {
     const section = sections.find(s => s.id === sectionId);
     if (!section) return;
-    
+
     if (globalThis.confirm('Are you sure you want to clear all parameters?' + (section.pdfDoc ? ' (This will clear parameters for the current page only)' : ''))) {
       if (section.pdfDoc) {
         setSections(prev => prev.map(s =>
@@ -494,6 +501,14 @@ function TemplateEditor() {
               size="small"
               sx={{ mr: 2, minWidth: 150 }}
             />
+            <SelectDropdown
+              label="Form Type"
+              value={section.formType || 'customs_export'}
+              onChange={(newFormType) => updateSectionFormType(section.id, newFormType)}
+              options={FORM_TYPES}
+              size="small"
+              sx={{ mr: 2, minWidth: 150 }}
+            />
             <Button variant="outlined" size="small" onClick={() => {
               fileInputRef.current.dataset.sectionId = section.id;
               fileInputRef.current.click();
@@ -557,7 +572,7 @@ function TemplateEditor() {
               }}
               loading={false}
               onCanvasReady={() => {
-              
+
               }}
             />
 
@@ -615,8 +630,8 @@ function TemplateEditor() {
 
       <LoadingOverlay {...loading} />
 
-      <Dialog 
-        open={createTemplateDialogOpen} 
+      <Dialog
+        open={createTemplateDialogOpen}
         onClose={() => setCreateTemplateDialogOpen(false)}
         sx={{
           '& .MuiDialog-paper': {
