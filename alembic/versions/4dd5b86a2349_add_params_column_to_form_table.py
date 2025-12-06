@@ -39,6 +39,9 @@ def upgrade() -> None:
     op.add_column("ocr_jobs", sa.Column("image_path", sa.Text(), nullable=True))
     op.add_column("ocr_jobs", sa.Column("result_text", sa.Text(), nullable=True))
     op.add_column("ocr_jobs", sa.Column("error_message", sa.Text(), nullable=True))
+    # Create the jobstatus enum type
+    op.execute("CREATE TYPE jobstatus AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED')")
+    # Convert the status column to use the enum type
     op.execute("ALTER TABLE ocr_jobs ALTER COLUMN status TYPE jobstatus USING status::jobstatus")
     op.drop_index(op.f("ix_ocr_jobs_status"), table_name="ocr_jobs")
     op.create_index(op.f("ix_ocr_jobs_job_id"), "ocr_jobs", ["job_id"], unique=True)
@@ -79,6 +82,7 @@ def downgrade() -> None:
     op.add_column("ocr_jobs", sa.Column("error", sa.TEXT(), autoincrement=False, nullable=True))
     op.drop_index(op.f("ix_ocr_jobs_job_id"), table_name="ocr_jobs")
     op.create_index(op.f("ix_ocr_jobs_status"), "ocr_jobs", ["status"], unique=False)
+    # Convert the status column back to VARCHAR
     op.alter_column(
         "ocr_jobs",
         "status",
@@ -86,6 +90,8 @@ def downgrade() -> None:
         type_=sa.VARCHAR(length=50),
         existing_nullable=False,
     )
+    # Drop the jobstatus enum type
+    op.execute("DROP TYPE IF EXISTS jobstatus")
     op.drop_column("ocr_jobs", "error_message")
     op.drop_column("ocr_jobs", "result_text")
     op.drop_column("ocr_jobs", "image_path")
