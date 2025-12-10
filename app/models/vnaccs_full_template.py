@@ -16,8 +16,8 @@ class VNACCSTemplateExporter:
     def __init__(self, template_path: Optional[str] = None):
         """Initialize with path to sample VNACCS XML template."""
         if template_path is None:
-            # Use the sample (2).xml as default template
-            template_path = Path(__file__).parent.parent.parent / "sample (2).xml"
+            # Use the sample.xml as default template
+            template_path = Path(__file__).parent.parent.parent / "sample.xml"
 
         self.template_path = template_path
         self._load_template()

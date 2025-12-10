@@ -4,7 +4,7 @@ import base64
 import io
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 import pytesseract
 from pdf2image import convert_from_bytes
@@ -88,3 +88,153 @@ class OCRService:
         # Decode base64 to bytes
         image_data = base64.b64decode(image_base64)
         return await self.extract_text(image_data, language)
+
+    def _extract_region_text_sync(
+        self,
+        image: Image.Image,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        language: Optional[str] = None,
+    ) -> str:
+        """Extract text from a specific region of an image."""
+        # Crop the region
+        region = image.crop((int(x1), int(y1), int(x2), int(y2)))
+
+        # Use configured language or default
+        lang = language or settings.OCR_LANGUAGES
+
+        # Extract text from region
+        text = pytesseract.image_to_string(region, lang=lang)
+        return text.strip()
+
+    def _extract_fields_from_image_sync(
+        self,
+        image_data: bytes,
+        page_params: List[Dict[str, Any]],
+        language: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """
+        Extract text from multiple regions defined by page_params.
+
+        Args:
+            image_data: Image bytes
+            page_params: List of field definitions with id, x1, y1, x2, y2
+            language: OCR language
+
+        Returns:
+            Dictionary mapping field id to extracted text
+        """
+        image = Image.open(io.BytesIO(image_data))
+        results = {}
+
+        for param in page_params:
+            field_id = param.get("id")
+            if not field_id:
+                continue
+
+            try:
+                x1 = float(param.get("x1", 0))
+                y1 = float(param.get("y1", 0))
+                x2 = float(param.get("x2", 0))
+                y2 = float(param.get("y2", 0))
+
+                # Skip invalid regions
+                if x2 <= x1 or y2 <= y1:
+                    logger.warning(f"Invalid region for field {field_id}: ({x1},{y1}) to ({x2},{y2})")
+                    continue
+
+                text = self._extract_region_text_sync(image, x1, y1, x2, y2, language)
+                results[field_id] = text
+                logger.debug(
+                    f"Extracted field {field_id}: {text[:50]}..."
+                    if len(text) > 50
+                    else f"Extracted field {field_id}: {text}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to extract field {field_id}: {str(e)}")
+                results[field_id] = ""
+
+        return results
+
+    async def extract_fields_from_base64(
+        self,
+        image_base64: str,
+        page_params: List[Dict[str, Any]],
+        language: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """
+        Extract text from regions defined by page_params from a base64 image.
+
+        Args:
+            image_base64: Base64 encoded image
+            page_params: List of field definitions with id, x1, y1, x2, y2
+            language: OCR language
+
+        Returns:
+            Dictionary mapping field id to extracted text
+        """
+        image_data = base64.b64decode(image_base64)
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            self.executor,
+            self._extract_fields_from_image_sync,
+            image_data,
+            page_params,
+            language,
+        )
+
+    async def extract_fields_from_pdf_base64(
+        self,
+        pdf_base64: str,
+        all_page_params: Dict[str, List[Dict[str, Any]]],
+        language: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """
+        Extract text from regions defined by all_page_params from a base64 PDF.
+
+        Args:
+            pdf_base64: Base64 encoded PDF
+            all_page_params: Dict mapping page numbers (as strings) to list of field definitions
+            language: OCR language
+
+        Returns:
+            Dictionary mapping field id to extracted text (merged from all pages)
+        """
+        pdf_data = base64.b64decode(pdf_base64)
+
+        # Convert PDF pages to images
+        loop = asyncio.get_event_loop()
+        images = await loop.run_in_executor(
+            self.executor,
+            lambda: convert_from_bytes(pdf_data, dpi=300),
+        )
+
+        all_results = {}
+
+        for page_num, image in enumerate(images, start=1):
+            page_key = str(page_num)
+            page_params = all_page_params.get(page_key, [])
+
+            if not page_params:
+                continue
+
+            # Save image to bytes for processing
+            img_byte_arr = io.BytesIO()
+            image.save(img_byte_arr, format="PNG")
+            img_bytes = img_byte_arr.getvalue()
+
+            # Extract fields for this page
+            page_results = await loop.run_in_executor(
+                self.executor,
+                self._extract_fields_from_image_sync,
+                img_bytes,
+                page_params,
+                language,
+            )
+
+            # Merge results (later pages override earlier if same field id)
+            all_results.update(page_results)
+
+        return all_results
